@@ -1,0 +1,15 @@
+ AGENTS.md                                          |  39 [32m++++[m
+ backend/AGENTS.md                                  |  65 [32m++++++[m
+ ...an Kesesuaian PRD \342\200\224 FinManage V1.md" | 163 [31m--------------[m
+ docs/contract.md                                   | 236 [32m+++++++++++++++++++++[m
+ docs/data-model.md                                 |  51 [32m+++++[m
+ docs/prompts/M0-backend.md                         |  73 [32m+++++++[m
+ docs/prompts/M0-helper.md                          |  38 [32m++++[m
+ docs/prompts/M0-mobile.md                          |  75 [32m+++++++[m
+ docs/prompts/README.md                             |  21 [32m++[m
+ docs/prompts/review-template.md                    |  41 [32m++++[m
+ docs/rules.md                                      |  95 [32m+++++++++[m
+ docs/screens.md                                    |  85 [32m++++++++[m
+ docs/struktur-folder.md                            |  27 [32m++[m[31m-[m
+ mobile/AGENTS.md                                   |  71 [32m+++++++[m
+ 14 files changed, 915 insertions(+), 165 deletions(-)

@@ -1,11 +1,32 @@
 d:\finance-management
 ├── docs
 │   ├── Laporan Kesesuaian PRD — FinManage V1.md
-│   └── PRD_FinManage_V1.md
+│   ├── PRD_FinManage_V1.md
+│   └── struktur-folder.md
+├── finmanage-agent-pack
+│   ├── AGENTS.md
+│   ├── backend
+│   │   └── AGENTS.md
+│   ├── docs
+│   │   ├── contract.md
+│   │   ├── data-model.md
+│   │   ├── prompts
+│   │   │   ├── M0-backend.md
+│   │   │   ├── M0-helper.md
+│   │   │   ├── M0-mobile.md
+│   │   │   ├── README.md
+│   │   │   └── review-template.md
+│   │   ├── rules.md
+│   │   └── screens.md
+│   └── mobile
+│       └── AGENTS.md
 └── frontend-finance-web
+    ├── .gitignore
+    ├── .oxlintrc.json
     ├── README.md
     ├── index.html
     ├── package.json
+    ├── package-lock.json
     ├── postcss.config.js
     ├── tailwind.config.js
     ├── vite.config.js
@@ -96,3 +117,5 @@ d:\finance-management
         └── utils
             ├── formatters.js
             └── validations.js
+
+Direktori dependency hasil instalasi seperti `frontend-finance-web/node_modules` tidak ditampilkan.
