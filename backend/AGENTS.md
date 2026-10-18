@@ -8,7 +8,7 @@ Node.js LTS, Express.js, TypeScript (strict), Prisma, PostgreSQL, Zod.
 
 Dependency yang diizinkan:
 - runtime: `express`, `zod`, `@prisma/client`, `jsonwebtoken`, `argon2` (cadangan `bcryptjs`), `helmet`, `cors`, `express-rate-limit`, `multer`, `exceljs`, `pdfkit`, `expo-server-sdk`, `pino`, `pino-http`, `dotenv`
-- dev: `typescript`, `tsx`, `prisma`, `vitest`, `supertest`, `@types/*`, `eslint`, `prettier`
+- dev: `typescript`, `tsx`, `prisma`, `vitest`, `supertest`, `@types/*`, `eslint`, `@eslint/js`, `typescript-eslint`, `prettier`
 
 Dependency lain (misalnya `file-type`, library HTTP, SDK Gemini) **harus ditanyakan dulu**, dengan alasannya.
 
