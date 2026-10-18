@@ -11,11 +11,11 @@
 
 1. Salin isi paket ini ke root repositori (folder `frontend-finance-web/` tetap di tempatnya, tidak disentuh).
 2. Commit kondisi saat ini sebagai snapshot: `git add -A` lalu `git commit -m "snapshot sebelum pengembangan Android"`.
-3. Buat branch per jalur, misalnya `be/m0` dan `fe/m0`. Jangan membiarkan dua agent menulis di folder yang sama.
+3. Pakai **satu branch kerja** (misalnya `dev`) dan jangan berpindah branch saat agent berjalan. Dua agent tidak bentrok karena masing-masing hanya menulis di foldernya (`backend/` atau `mobile/`). Commit per folder: `git add backend` lalu commit, `git add mobile` lalu commit.
 4. Jalankan agent satu per satu pada folder miliknya. Tempel isi prompt (dari baris PERAN hingga FORMAT LAPORAN) ke agent; jika agent tidak membaca `AGENTS.md` otomatis, tempel juga isi `AGENTS.md` root di awal.
 
 ## Setelah setiap sesi agent
 
-- `git diff --stat -- frontend-finance-web` harus kosong. Bila tidak, batalkan perubahan itu (`git checkout -- frontend-finance-web`) dan jangan gabungkan branch.
-- Jalankan sendiri `npm test` (backend) atau `npx tsc --noEmit` (mobile), lalu gabungkan ke `main` bila lulus.
+- `git diff --stat -- frontend-finance-web` harus kosong. Bila tidak, batalkan perubahan itu (`git checkout -- frontend-finance-web`) dan jangan commit folder lain sebelum itu bersih.
+- Jalankan sendiri `npm test` (backend) atau `npx tsc --noEmit` (mobile). Bila lulus, commit folder itu; bila gagal, minta agent memperbaiki sebelum commit.
 - Tanyakan ke agent hanya hal yang perlu; jangan menempelkan seluruh PRD.
