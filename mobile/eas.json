@@ -1,0 +1,24 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://GANTI-INI/api/v1",
+        "EXPO_PUBLIC_ALLOW_SERVER_OVERRIDE": "false"
+      }
+    },
+    "local-demo": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://GANTI-INI:3000/api/v1",
+        "EXPO_PUBLIC_ALLOW_SERVER_OVERRIDE": "true"
+      }
+    }
+  }
+}
