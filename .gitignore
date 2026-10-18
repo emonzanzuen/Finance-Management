@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+coverage/
+
+# Expo
+.expo/
+
+# Environment (jangan commit rahasia)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Native build (Expo prebuild / React Native)
+android/
+ios/
+
+# Keystore & sertifikat
+google-services.json
+*.jks
+*.keystore
+*.pem
+
+# Dump database
+dumps/
+*.sql
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
