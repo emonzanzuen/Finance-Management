@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url  	    = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+enum CategoryType {
+  income
+  expense
+
+  @@map("category_type")
+}
+
+enum TransactionSource {
+  manual
+  scan
+  import
+
+  @@map("transaction_source")
+}
+
+enum UserStatus {
+  active
+  suspended
+
+  @@map("user_status")
+}
+
+enum SavingsEntryType {
+  deposit
+  withdrawal
+
+  @@map("savings_entry_type")
+}
+
+enum NotificationType {
+  budget_warning
+  budget_exceeded
+  goal_completed
+
+  @@map("notification_type")
+}
+
+enum ScanStatus {
+  success
+  failed
+
+  @@map("scan_status")
+}
+
+model User {
+  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                 String        @db.VarChar(100)
+  email                String        @unique @db.VarChar(255)
+  passwordHash         String        @map("password_hash") @db.Text
+  avatarData           String?       @map("avatar_data") @db.Text
+  status               UserStatus    @default(active)
+  receiptScanConsentAt DateTime?     @map("receipt_scan_consent_at") @db.Timestamptz(6)
+  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  sessions        Session[]
+  passwordResets  PasswordReset[]
+  categories      Category[]
+  transactions    Transaction[]
+  budgets         Budget[]
+  savingsGoals    SavingsGoal[]
+  savingsDeposits SavingsDeposit[]
+  notifications   Notification[]
+  deviceTokens    DeviceToken[]
+  receiptScans    ReceiptScan[]
+
+  @@map("users")
+}
+
+model Session {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  lastUsedAt DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(6)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+  userAgent  String?   @map("user_agent") @db.VarChar(200)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model PasswordReset {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @map("code_hash") @db.Text
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  attempts  Int       @default(0) @db.SmallInt
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("password_resets")
+}
+
+model Category {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String       @map("user_id") @db.Uuid
+  name      String       @db.VarChar(50)
+  nameKey   String       @map("name_key") @db.VarChar(50)
+  type      CategoryType
+  color     String       @db.Char(7)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  budgets      Budget[]
+
+  @@unique([userId, type, nameKey])
+  @@index([userId, type])
+  @@map("categories")
+}
+
+model Transaction {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String            @map("user_id") @db.Uuid
+  categoryId      String            @map("category_id") @db.Uuid
+  type            CategoryType
+  amount          Decimal           @db.Decimal(15, 2)
+  transactionDate DateTime          @map("transaction_date") @db.Date
+  description     String?           @db.VarChar(255)
+  source          TransactionSource @default(manual)
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@index([userId, transactionDate(sort: Desc)])
+  @@index([userId, type, transactionDate])
+  @@index([userId, categoryId, transactionDate])
+  @@map("transactions")
+}
+
+model Budget {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  categoryId   String   @map("category_id") @db.Uuid
+  month        Int      @db.SmallInt
+  year         Int      @db.SmallInt
+  budgetAmount Decimal  @map("budget_amount") @db.Decimal(15, 2)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, categoryId, month, year])
+  @@index([userId, year, month])
+  @@map("budgets")
+}
+
+model SavingsGoal {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  title        String    @db.VarChar(100)
+  targetAmount Decimal   @map("target_amount") @db.Decimal(15, 2)
+  deadline     DateTime? @db.Date
+  completedAt  DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deposits SavingsDeposit[]
+
+  @@index([userId])
+  @@map("savings_goals")
+}
+
+model SavingsDeposit {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  goalId      String           @map("goal_id") @db.Uuid
+  userId      String           @map("user_id") @db.Uuid
+  entryType   SavingsEntryType @default(deposit) @map("entry_type")
+  amount      Decimal          @db.Decimal(15, 2)
+  depositDate DateTime         @map("deposit_date") @db.Date
+  note        String?          @db.VarChar(255)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  goal SavingsGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+  @@index([userId])
+  @@map("savings_deposits")
+}
+
+model Notification {
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  data      Json             @db.JsonB
+  dedupeKey String           @map("dedupe_key") @db.VarChar(100)
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, isRead, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model DeviceToken {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  expoPushToken String   @unique @map("expo_push_token") @db.VarChar(255)
+  platform      String   @default("android") @db.VarChar(20)
+  locale        String   @default("id") @db.VarChar(5)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastSeenAt    DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+model ExchangeRateCache {
+  id        Int      @id @default(1) @db.SmallInt
+  baseCode  String   @default("IDR") @map("base_code") @db.Char(3)
+  rates     Json     @db.JsonB
+  fetchedAt DateTime @map("fetched_at") @db.Timestamptz(6)
+
+  @@map("exchange_rate_cache")
+}
+
+model ReceiptScan {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String     @map("user_id") @db.Uuid
+  status    ScanStatus
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("receipt_scans")
+}
