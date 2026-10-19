@@ -3,10 +3,19 @@ import express, { type Express, type Router } from 'express';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import { createLogger } from './lib/logger';
+import { serializeRequest } from './lib/logSerializers';
 import { errorHandler, notFound } from './middleware/errorHandler';
 import { createGlobalRateLimit } from './middleware/rateLimit';
 import { requestId } from './middleware/requestId';
 import { healthRouter } from './modules/health/health.routes';
+import { authRouter } from './modules/auth/auth.routes';
+import { profileRouter } from './modules/profile/profile.routes';
+import { categoriesRouter } from './modules/categories/categories.routes';
+import { transactionsRouter } from './modules/transactions/transactions.routes';
+import { budgetsRouter } from './modules/budgets/budgets.routes';
+import { savingsRouter } from './modules/savings/savings.routes';
+import { dashboardRouter } from './modules/dashboard/dashboard.routes';
+import { reportsRouter } from './modules/reports/reports.routes';
 
 export interface CreateAppOptions {
   nodeEnv?: 'development' | 'test' | 'production';
@@ -63,12 +72,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
       },
       // Never log request/response bodies.
       serializers: {
-        req: (req) => ({
-          id: req.id,
-          method: req.method,
-          url: req.url,
-          remoteAddress: req.remoteAddress,
-        }),
+        req: serializeRequest,
         res: (res) => ({
           statusCode: res.statusCode,
         }),
@@ -81,6 +85,14 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use(createGlobalRateLimit(options.rateLimitMax, options.rateLimitWindowMs));
 
   app.use('/api/v1', healthRouter);
+  app.use('/api/v1', authRouter);
+  app.use('/api/v1', profileRouter);
+  app.use('/api/v1', categoriesRouter);
+  app.use('/api/v1', transactionsRouter);
+  app.use('/api/v1', budgetsRouter);
+  app.use('/api/v1', savingsRouter);
+  app.use('/api/v1', dashboardRouter);
+  app.use('/api/v1', reportsRouter);
   if (options.extraRoutes) {
     app.use('/api/v1', options.extraRoutes);
   }
