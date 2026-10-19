@@ -9,10 +9,25 @@ export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
 
 let firstRequestDone = false;
 let unauthorizedHandler: (() => void) | null = null;
+let errorMessageResolver: ((code: string, fallbackMessage: string) => string) | null = null;
 
-/** Register the handler invoked on any 401 (AuthContext wires signOut here). */
+/** Register the handler invoked on 401 UNAUTHORIZED (AuthContext wires signOut here). */
 export function setUnauthorizedHandler(handler: (() => void) | null): void {
   unauthorizedHandler = handler;
+}
+
+/** Register active-language translator for error codes. */
+export function setErrorMessageResolver(
+  resolver: ((code: string, fallbackMessage: string) => string) | null,
+): void {
+  errorMessageResolver = resolver;
+}
+
+function resolveLocalizedMessage(code: string, fallbackMessage: string): string {
+  if (errorMessageResolver) {
+    return errorMessageResolver(code, fallbackMessage);
+  }
+  return fallbackMessage;
 }
 
 /** Host part of the configured API URL only (never includes path, query, or token). */
@@ -37,24 +52,33 @@ export function normalizeError(error: unknown): ApiError {
     if (status !== undefined) {
       const body: unknown = error.response?.data;
       if (isErrorBody(body)) {
+        const code = body.error.code;
         return new ApiError({
-          code: body.error.code,
-          message: body.error.message,
+          code,
+          message: resolveLocalizedMessage(code, body.error.message),
           details: body.error.details,
           status,
         });
       }
+      const fallbackCode = status === 401 ? 'UNAUTHORIZED' : status === 429 ? 'RATE_LIMITED' : 'INTERNAL_ERROR';
       return new ApiError({
-        code: status === 401 ? 'UNAUTHORIZED' : 'INTERNAL_ERROR',
-        message: error.message,
+        code: fallbackCode,
+        message: resolveLocalizedMessage(fallbackCode, error.message),
         status,
       });
     }
-    return new ApiError({ code: NETWORK_ERROR_CODE, message: error.message, status: 0 });
+    return new ApiError({
+      code: NETWORK_ERROR_CODE,
+      message: resolveLocalizedMessage(NETWORK_ERROR_CODE, error.message),
+      status: 0,
+    });
   }
   return new ApiError({
     code: NETWORK_ERROR_CODE,
-    message: error instanceof Error ? error.message : 'Unknown error',
+    message: resolveLocalizedMessage(
+      NETWORK_ERROR_CODE,
+      error instanceof Error ? error.message : 'Unknown error',
+    ),
     status: 0,
   });
 }
@@ -79,7 +103,9 @@ apiClient.interceptors.response.use(
   (error: AxiosError) => {
     if (error.response) firstRequestDone = true;
     const apiError = normalizeError(error);
-    if (apiError.status === 401) unauthorizedHandler?.();
+    if (apiError.status === 401 && apiError.code !== 'INVALID_CREDENTIALS') {
+      unauthorizedHandler?.();
+    }
     return Promise.reject(apiError);
   },
 );

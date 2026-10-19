@@ -6,6 +6,7 @@
   "auth": {
     "login": "Login",
     "logout": "Logout",
+    "logout_title": "Sign Out",
     "email": "Email",
     "password": "Password",
     "forgot_password": "Forgot password?",
@@ -16,7 +17,22 @@
     "have_account": "Already have an account?",
     "dev_login": "Sign in as dev",
     "login_subtitle": "Sign in to continue",
-    "register_subtitle": "Create a new account"
+    "register_subtitle": "Create a new account",
+    "login_success": "Signed in successfully",
+    "register_success": "Account created successfully",
+    "name_placeholder": "Your full name",
+    "email_placeholder": "name@email.com",
+    "password_placeholder": "At least 8 characters (letters & numbers)",
+    "validation": {
+      "name_required": "Name is required",
+      "name_max": "Name must be at most 100 characters",
+      "email_required": "Email is required",
+      "email_invalid": "Invalid email format",
+      "password_required": "Password is required",
+      "password_min": "Password must be at least 8 characters",
+      "password_max": "Password must be at most 128 characters",
+      "password_alphanumeric": "Password must contain both letters and numbers"
+    }
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -71,7 +87,32 @@
     "empty": "No transactions yet",
     "add_first": "Add First Transaction",
     "income": "Income",
-    "expense": "Expense"
+    "expense": "Expense",
+    "description_placeholder": "Additional note (optional)",
+    "select_category": "Select category",
+    "filter_title": "Filter & Sort",
+    "reset_filter": "Reset Filters",
+    "apply_filter": "Apply",
+    "date_from": "From Date",
+    "date_to": "To Date",
+    "sort_date_desc": "Newest date",
+    "sort_date_asc": "Oldest date",
+    "sort_amount_desc": "Highest amount",
+    "sort_amount_asc": "Lowest amount",
+    "created_toast": "Transaction saved successfully",
+    "updated_toast": "Transaction updated successfully",
+    "deleted_toast": "Transaction deleted successfully",
+    "no_categories_for_type": "No categories for this type yet. Please add a category first.",
+    "manage_categories": "Manage Categories",
+    "loading_more": "Loading more...",
+    "validation": {
+      "category_required": "Category is required",
+      "amount_positive": "Amount must be a positive integer",
+      "amount_max": "Amount exceeds the maximum limit",
+      "date_required": "Date is required",
+      "date_future": "Transaction date cannot be in the future",
+      "description_max": "Description must be at most 255 characters"
+    }
   },
   "categories": {
     "title": "Categories",
@@ -86,7 +127,20 @@
     "expense_categories": "Expense",
     "no_income": "No income categories yet",
     "no_expense": "No expense categories yet",
-    "confirm_delete": "Delete category \"{name}\"?"
+    "confirm_delete": "Delete category \"{name}\"?",
+    "name_placeholder": "Example: Food, Salary",
+    "preset_color": "Choose Color",
+    "type_locked_hint": "Category type cannot be changed because it is already in use",
+    "in_use_detail": "This category is currently used by {count} transactions/budgets and cannot be deleted.",
+    "in_use_breakdown": "This category is used by {transactions} transactions and {budgets} budgets and cannot be deleted.",
+    "created_toast": "Category added successfully",
+    "updated_toast": "Category updated successfully",
+    "deleted_toast": "Category deleted successfully",
+    "validation": {
+      "name_required": "Category name is required",
+      "name_max": "Category name must be at most 50 characters",
+      "color_required": "Please choose a category color"
+    }
   },
   "budget": {
     "title": "Monthly Budget",
@@ -244,7 +298,9 @@
   },
   "more": {
     "server_check": "Check server connection",
-    "server_check_hint": "Check whether the server is reachable"
+    "server_check_hint": "Check whether the server is reachable",
+    "categories_subtitle": "Manage income and expense categories",
+    "menu_section": "Menu"
   },
   "health": {
     "check": "Check server connection",

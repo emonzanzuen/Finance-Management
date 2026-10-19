@@ -3,6 +3,7 @@ export type ApiErrorBody = {
     code: string;
     message: string;
     details?: unknown;
+    requestId?: string;
   };
 };
 
@@ -37,6 +38,117 @@ export type AuthUser = {
   name: string;
   email: string;
   avatar: string | null;
+};
+
+export type AuthSessionResponse = {
+  token: string;
+  user: AuthUser;
+};
+
+export type LoginInput = {
+  email: string;
+  password: string;
+};
+
+export type RegisterInput = {
+  name: string;
+  email: string;
+  password: string;
+};
+
+export type ProfileStats = {
+  transactionCount: number;
+  savingsGoalCount: number;
+  totalSavings: number;
+};
+
+export type UserProfile = AuthUser & {
+  receiptScanConsent: boolean;
+  stats: ProfileStats;
+};
+
+export type CategoryType = 'income' | 'expense';
+
+export type Category = {
+  id: string;
+  name: string;
+  type: CategoryType;
+  color: string;
+  usageCount?: number;
+  transactionCount?: number;
+  budgetCount?: number;
+  isUsed?: boolean;
+};
+
+export type CreateCategoryInput = {
+  name: string;
+  type: CategoryType;
+  color: string;
+};
+
+export type UpdateCategoryInput = {
+  name?: string;
+  type?: CategoryType;
+  color?: string;
+};
+
+export type CategoryInUseDetails = {
+  usageCount?: number;
+  count?: number;
+  transactionCount?: number;
+  transactions?: number;
+  budgetCount?: number;
+  budgets?: number;
+};
+
+export type TransactionSource = 'manual' | 'scan' | 'import';
+
+export type TransactionCategory = {
+  id: string;
+  name: string;
+  color: string;
+};
+
+export type Transaction = {
+  id: string;
+  type: CategoryType;
+  amount: number;
+  transactionDate: string;
+  description: string | null;
+  source?: TransactionSource;
+  category: TransactionCategory;
+  createdAt?: string;
+};
+
+export type TransactionSortBy = 'transactionDate' | 'amount';
+export type SortOrder = 'asc' | 'desc';
+
+export type TransactionListParams = {
+  page?: number;
+  limit?: number;
+  type?: CategoryType;
+  categoryId?: string;
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  sortBy?: TransactionSortBy;
+  sortOrder?: SortOrder;
+};
+
+export type CreateTransactionInput = {
+  type: CategoryType;
+  categoryId: string;
+  amount: number;
+  transactionDate: string;
+  description?: string;
+};
+
+export type UpdateTransactionInput = {
+  type?: CategoryType;
+  categoryId?: string;
+  amount?: number;
+  transactionDate?: string;
+  description?: string;
 };
 
 // GET /health: the contract only lists the endpoint (public, server status); body is kept loose.

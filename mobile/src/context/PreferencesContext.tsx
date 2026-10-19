@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { setErrorMessageResolver } from '@/api/client';
+import { translate } from '@/i18n/translate';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type Language = 'id' | 'en';
@@ -61,6 +63,17 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    setErrorMessageResolver((code, fallbackMessage) => {
+      const key = `errors.${code}`;
+      const translated = translate(language, key);
+      if (translated !== key) return translated;
+      if (fallbackMessage && fallbackMessage.trim().length > 0) return fallbackMessage;
+      return translate(language, 'errors.UNKNOWN');
+    });
+    return () => setErrorMessageResolver(null);
+  }, [language]);
 
   const value = useMemo<PreferencesValue>(
     () => ({
