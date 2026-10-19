@@ -6,6 +6,7 @@
   "auth": {
     "login": "Masuk",
     "logout": "Keluar",
+    "logout_title": "Keluar dari Akun",
     "email": "Email",
     "password": "Kata Sandi",
     "forgot_password": "Lupa kata sandi?",
@@ -16,7 +17,22 @@
     "have_account": "Sudah punya akun?",
     "dev_login": "Masuk sebagai dev",
     "login_subtitle": "Masuk untuk melanjutkan",
-    "register_subtitle": "Buat akun baru"
+    "register_subtitle": "Buat akun baru",
+    "login_success": "Berhasil masuk",
+    "register_success": "Akun berhasil dibuat",
+    "name_placeholder": "Nama lengkap Anda",
+    "email_placeholder": "nama@email.com",
+    "password_placeholder": "Minimal 8 karakter (huruf & angka)",
+    "validation": {
+      "name_required": "Nama wajib diisi",
+      "name_max": "Nama maksimal 100 karakter",
+      "email_required": "Email wajib diisi",
+      "email_invalid": "Format email tidak valid",
+      "password_required": "Kata sandi wajib diisi",
+      "password_min": "Kata sandi minimal 8 karakter",
+      "password_max": "Kata sandi maksimal 128 karakter",
+      "password_alphanumeric": "Kata sandi wajib mengandung huruf dan angka"
+    }
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -71,7 +87,32 @@
     "empty": "Belum ada transaksi",
     "add_first": "Tambah Transaksi Pertama",
     "income": "Pemasukan",
-    "expense": "Pengeluaran"
+    "expense": "Pengeluaran",
+    "description_placeholder": "Catatan tambahan (opsional)",
+    "select_category": "Pilih kategori",
+    "filter_title": "Filter & Urutkan",
+    "reset_filter": "Reset Filter",
+    "apply_filter": "Terapkan",
+    "date_from": "Dari Tanggal",
+    "date_to": "Sampai Tanggal",
+    "sort_date_desc": "Tanggal terbaru",
+    "sort_date_asc": "Tanggal terlama",
+    "sort_amount_desc": "Nominal terbesar",
+    "sort_amount_asc": "Nominal terkecil",
+    "created_toast": "Transaksi berhasil disimpan",
+    "updated_toast": "Transaksi berhasil diperbarui",
+    "deleted_toast": "Transaksi berhasil dihapus",
+    "no_categories_for_type": "Belum ada kategori untuk tipe ini. Tambahkan kategori terlebih dahulu.",
+    "manage_categories": "Kelola Kategori",
+    "loading_more": "Memuat lebih banyak...",
+    "validation": {
+      "category_required": "Kategori wajib dipilih",
+      "amount_positive": "Nominal wajib bilangan bulat lebih dari 0",
+      "amount_max": "Nominal melebihi batas maksimum",
+      "date_required": "Tanggal wajib diisi",
+      "date_future": "Tanggal transaksi tidak boleh melewati hari ini",
+      "description_max": "Deskripsi maksimal 255 karakter"
+    }
   },
   "categories": {
     "title": "Kategori",
@@ -86,7 +127,20 @@
     "expense_categories": "Pengeluaran",
     "no_income": "Belum ada kategori pemasukan",
     "no_expense": "Belum ada kategori pengeluaran",
-    "confirm_delete": "Hapus kategori \"{name}\"?"
+    "confirm_delete": "Hapus kategori \"{name}\"?",
+    "name_placeholder": "Contoh: Makanan, Gaji",
+    "preset_color": "Pilih Warna",
+    "type_locked_hint": "Tipe kategori tidak dapat diubah karena sudah dipakai",
+    "in_use_detail": "Kategori ini sedang dipakai oleh {count} transaksi/anggaran dan tidak dapat dihapus.",
+    "in_use_breakdown": "Kategori ini dipakai oleh {transactions} transaksi dan {budgets} anggaran sehingga tidak dapat dihapus.",
+    "created_toast": "Kategori berhasil ditambahkan",
+    "updated_toast": "Kategori berhasil diperbarui",
+    "deleted_toast": "Kategori berhasil dihapus",
+    "validation": {
+      "name_required": "Nama kategori wajib diisi",
+      "name_max": "Nama kategori maksimal 50 karakter",
+      "color_required": "Pilih salah satu warna kategori"
+    }
   },
   "budget": {
     "title": "Budget Bulanan",
@@ -244,7 +298,9 @@
   },
   "more": {
     "server_check": "Cek koneksi server",
-    "server_check_hint": "Periksa apakah server dapat dijangkau"
+    "server_check_hint": "Periksa apakah server dapat dijangkau",
+    "categories_subtitle": "Kelola kategori pemasukan dan pengeluaran",
+    "menu_section": "Menu"
   },
   "health": {
     "check": "Cek koneksi server",
