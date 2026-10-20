@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, TextInput, View, type ViewStyle } from 'react-native';
 import { usePreferences } from '@/context/PreferencesContext';
+import { useCurrencies } from '@/hooks/useCurrencies';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useTheme } from '@/theme/useTheme';
 import {
@@ -37,8 +38,10 @@ export function AmountField({
   const theme = useTheme();
   const { t } = useTranslation();
   const { currency, language } = usePreferences();
+  const { rates: activeRates } = useCurrencies();
   const [focused, setFocused] = useState(false);
 
+  const effectiveRates = rates ?? activeRates;
   const displayText = value > 0 ? formatIdrThousandInput(value) : '';
   const borderColor = error
     ? theme.colors.danger
@@ -46,7 +49,7 @@ export function AmountField({
       ? theme.colors.primary
       : theme.colors.border;
 
-  const showPreview = currency !== 'IDR' && value > 0 && rates?.[currency];
+  const showPreview = currency !== 'IDR' && value > 0 && effectiveRates?.[currency];
 
   return (
     <View style={[{ gap: theme.spacing.xs }, containerStyle]}>
@@ -95,7 +98,7 @@ export function AmountField({
         </AppText>
       ) : showPreview ? (
         <AppText variant="caption" muted>
-          ≈ {formatCurrency(value, currency, rates, language)}
+          ≈ {formatCurrency(value, currency, effectiveRates, language)}
         </AppText>
       ) : null}
     </View>

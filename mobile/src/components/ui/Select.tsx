@@ -66,11 +66,15 @@ export function Select({
         ) : null}
         <AppText
           style={styles.label}
-          color={selected ? theme.colors.text : theme.colors.textMuted}
+          color={selected ? (disabled ? theme.colors.textMuted : theme.colors.text) : theme.colors.textMuted}
         >
           {selected ? selected.label : placeholder}
         </AppText>
-        <Feather name="chevron-down" size={18} color={theme.colors.textMuted} />
+        <Feather
+          name={disabled ? 'lock' : 'chevron-down'}
+          size={disabled ? 16 : 18}
+          color={theme.colors.textMuted}
+        />
       </Pressable>
       {error ? (
         <AppText variant="caption" color={theme.colors.danger}>

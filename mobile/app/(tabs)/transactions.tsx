@@ -25,6 +25,7 @@ import { TextField } from '@/components/ui/TextField';
 import { useToast } from '@/components/ui/Toast';
 import { usePreferences } from '@/context/PreferencesContext';
 import { useCategories } from '@/hooks/useCategories';
+import { useCurrencies } from '@/hooks/useCurrencies';
 import {
   useDeleteTransaction,
   useTransactionsInfinite,
@@ -62,6 +63,7 @@ export default function TransactionsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { currency, language } = usePreferences();
+  const { rates } = useCurrencies();
   const { showToast } = useToast();
 
   // Search input with debounce
@@ -301,7 +303,7 @@ export default function TransactionsScreen() {
                     {formatDateDisplay(item.transactionDate, language)}
                   </AppText>
                   <AppText variant="bodyStrong" color={amountColor}>
-                    {sign} {formatCurrency(item.amount, currency, undefined, language)}
+                    {sign} {formatCurrency(item.amount, currency, rates, language)}
                   </AppText>
                 </View>
 

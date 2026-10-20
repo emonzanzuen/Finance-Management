@@ -17,9 +17,25 @@ export const PRESET_CATEGORY_COLORS = [
   '#64748B', // Slate
 ] as const;
 
+/** Fallback rates (units per 1 IDR) used before live/cached rates are loaded. */
+export const DEFAULT_FALLBACK_RATES: Record<CurrencyCode, number> = {
+  IDR: 1,
+  USD: 0.0000606,
+  EUR: 0.0000558,
+  SGD: 0.0000812,
+  MYR: 0.000268,
+  JPY: 0.00915,
+  GBP: 0.0000478,
+  AUD: 0.0000925,
+  SAR: 0.000227,
+  CNY: 0.000438,
+  KRW: 0.0835,
+  THB: 0.00208,
+};
+
 const ZERO_DECIMAL_CURRENCIES: ReadonlySet<string> = new Set(['IDR', 'JPY', 'KRW']);
 
-const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
+export const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
   IDR: 'Rp',
   USD: '$',
   EUR: '€',
@@ -45,9 +61,13 @@ export function formatCurrency(
   language: Language = 'id',
 ): string {
   const safeIdr = Number.isFinite(amountInIdr) ? amountInIdr : 0;
-  const rate = currencyCode === 'IDR' ? 1 : rates?.[currencyCode];
+  const effectiveRates = rates && Object.keys(rates).length > 0 ? rates : DEFAULT_FALLBACK_RATES;
+  const rate =
+    currencyCode === 'IDR'
+      ? 1
+      : (effectiveRates[currencyCode] ?? DEFAULT_FALLBACK_RATES[currencyCode] ?? 1);
   const targetCurrency: CurrencyCode = rate && rate > 0 ? currencyCode : 'IDR';
-  const converted = targetCurrency === 'IDR' ? Math.round(safeIdr) : safeIdr * (rate ?? 1);
+  const converted = targetCurrency === 'IDR' ? Math.round(safeIdr) : safeIdr * rate;
   const decimals = ZERO_DECIMAL_CURRENCIES.has(targetCurrency) ? 0 : 2;
   const locale = language === 'en' ? 'en-US' : 'id-ID';
   const symbol = CURRENCY_SYMBOLS[targetCurrency] ?? `${targetCurrency} `;
@@ -86,6 +106,30 @@ export function getTodayWibString(now: Date = new Date()): string {
   const month = String(wibDate.getUTCMonth() + 1).padStart(2, '0');
   const day = String(wibDate.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+/** Returns current month (1-12) and year in Asia/Jakarta (WIB, UTC+7) (BR-04). */
+export function getCurrentWibMonthYear(now: Date = new Date()): { month: number; year: number } {
+  const wibMs = now.getTime() + 7 * 60 * 60 * 1000;
+  const wibDate = new Date(wibMs);
+  return {
+    month: wibDate.getUTCMonth() + 1,
+    year: wibDate.getUTCFullYear(),
+  };
+}
+
+/** Returns first and last YYYY-MM-DD dates for a given month (1-12) and year. */
+export function getMonthDateRange(
+  month: number,
+  year: number,
+): { dateFrom: string; dateTo: string } {
+  const lastDay = new Date(year, month, 0).getDate();
+  const mm = String(month).padStart(2, '0');
+  const dd = String(lastDay).padStart(2, '0');
+  return {
+    dateFrom: `${year}-${mm}-01`,
+    dateTo: `${year}-${mm}-${dd}`,
+  };
 }
 
 /** Parses YYYY-MM-DD into a local Date object at noon to avoid timezone day-shift bugs. */
