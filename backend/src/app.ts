@@ -16,6 +16,7 @@ import { budgetsRouter } from './modules/budgets/budgets.routes';
 import { savingsRouter } from './modules/savings/savings.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
 import { reportsRouter } from './modules/reports/reports.routes';
+import { currenciesRouter } from './modules/currencies/currencies.routes';
 
 export interface CreateAppOptions {
   nodeEnv?: 'development' | 'test' | 'production';
@@ -93,6 +94,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use('/api/v1', savingsRouter);
   app.use('/api/v1', dashboardRouter);
   app.use('/api/v1', reportsRouter);
+  app.use('/api/v1', currenciesRouter);
   if (options.extraRoutes) {
     app.use('/api/v1', options.extraRoutes);
   }

@@ -14,7 +14,7 @@ REST API untuk aplikasi Android **FinManage** (Express + TypeScript + Prisma + P
    cd backend
    npm install
    ```
-2. Salin `.env.example` menjadi `.env` lalu isi variabel yang dibutuhkan:
+2. Salin `.env.example` menjadi `.env` lalu isi variabel yang dibutuhkan. Saat development dengan Neon, isi `DIRECT_URL` memakai connection string langsung (unpooled); untuk PostgreSQL lokal, variabel ini boleh dikosongkan.
    ```bash
    cp .env.example .env
    ```
@@ -48,7 +48,7 @@ REST API untuk aplikasi Android **FinManage** (Express + TypeScript + Prisma + P
 | `NODE_ENV` | Tidak | `development` | `development`, `test`, atau `production` |
 | `PORT` | Tidak | `3000` | Port HTTP server |
 | `DATABASE_URL` | Ya | - | Connection string PostgreSQL (pooled pada production/Neon) |
-| `DIRECT_URL` | Prod | - | Connection string langsung untuk migrasi Prisma (opsional di dev/test, wajib di production) |
+| `DIRECT_URL` | Prod | - | Connection string PostgreSQL langsung (Neon unpooled) untuk migrasi; opsional di development dan wajib di production |
 | `JWT_SECRET` | Ya | - | Kunci rahasia JWT (di production wajib minimal 32 karakter acak dan bukan nilai contoh) |
 | `JWT_EXPIRES_IN` | Tidak | `7d` | Masa berlaku akses token JWT |
 | `GEMINI_API_KEY` | Tidak | - | Kunci API Gemini untuk fitur scan nota |
@@ -57,6 +57,17 @@ REST API untuk aplikasi Android **FinManage** (Express + TypeScript + Prisma + P
 | `SCAN_DAILY_LIMIT` | Tidak | `10` | Kuota harian scan nota per pengguna |
 | `CORS_ORIGINS` | Tidak | `""` | Daftar origin yang diizinkan dipisah koma (di production dilarang memakai `*`) |
 | `TRUST_PROXY` | Tidak | `1` | Jumlah hop reverse proxy untuk penentuan IP rate-limit |
+| `DEMO_USER_PASSWORD` | Seed demo | - | Password akun demo; wajib disetel di production. Di lokal, seed dapat membuat password acak satu kali jika kosong. |
+
+## Data Demo
+
+Setel `DEMO_USER_PASSWORD` untuk memilih password akun `demo@finmanage.local`, lalu jalankan:
+
+```bash
+npx prisma db seed
+```
+
+Seed membuat atau memperbarui akun demo, 13 kategori, transaksi enam bulan, empat status budget, dan tiga status target tabungan. Seed aman diulang. Jika password tidak diisi di lingkungan lokal, perintah menampilkan password acak satu kali; simpan di tempat aman. Untuk database hosting, atur `DEMO_USER_PASSWORD` secara eksplisit dan cabut atau hapus akun demo setelah demo.
 
 ## Menerapkan Migrasi
 
