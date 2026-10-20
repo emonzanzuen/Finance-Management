@@ -10,7 +10,8 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY prisma ./prisma
-RUN npx prisma generate
+COPY prisma.config.ts ./
+RUN DATABASE_URL="postgresql://build:build@127.0.0.1:5432/finmanage_build" DIRECT_URL="postgresql://build:build@127.0.0.1:5432/finmanage_build" npx prisma generate
 
 COPY tsconfig.json tsconfig.build.json ./
 COPY src ./src
@@ -31,7 +32,8 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 COPY prisma ./prisma
-RUN npx prisma generate
+COPY prisma.config.ts ./
+RUN DATABASE_URL="postgresql://build:build@127.0.0.1:5432/finmanage_build" DIRECT_URL="postgresql://build:build@127.0.0.1:5432/finmanage_build" npx prisma generate
 
 COPY --from=builder /app/dist ./dist
 

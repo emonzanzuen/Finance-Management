@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { loadEnv } from '../../config/env';
 import { AppError } from '../../lib/errors';
 import { prisma } from '../../lib/prisma';
+import { DEFAULT_CATEGORIES } from '../../lib/defaultCategories';
 import type { LoginInput, RegisterInput } from './auth.schema';
 
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -63,22 +64,6 @@ function mapPrismaConflict(error: unknown): never {
   }
   throw error;
 }
-
-const DEFAULT_CATEGORIES = [
-  { name: 'Salary', type: 'income' as const, color: '#10B981' },
-  { name: 'Freelance', type: 'income' as const, color: '#34D399' },
-  { name: 'Bonus', type: 'income' as const, color: '#6EE7B7' },
-  { name: 'Investment', type: 'income' as const, color: '#059669' },
-  { name: 'Other', type: 'income' as const, color: '#A7F3D0' },
-  { name: 'Food', type: 'expense' as const, color: '#F59E0B' },
-  { name: 'Transportation', type: 'expense' as const, color: '#3B82F6' },
-  { name: 'Shopping', type: 'expense' as const, color: '#EC4899' },
-  { name: 'Bills', type: 'expense' as const, color: '#8B5CF6' },
-  { name: 'Entertainment', type: 'expense' as const, color: '#F97316' },
-  { name: 'Education', type: 'expense' as const, color: '#06B6D4' },
-  { name: 'Health', type: 'expense' as const, color: '#EF4444' },
-  { name: 'Other', type: 'expense' as const, color: '#9CA3AF' },
-];
 
 export async function register(input: RegisterInput, userAgent: string | undefined): Promise<AuthResult> {
   validatePassword(input.password, input.email);
