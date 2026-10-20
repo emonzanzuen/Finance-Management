@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { Animated, useAnimatedValue, View, type DimensionValue, type ViewStyle } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Animated, Platform, View, type DimensionValue, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
 
 type Props = {
@@ -9,6 +9,8 @@ type Props = {
   style?: ViewStyle;
 };
 
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
+
 export function Skeleton({
   width = '100%',
   height = 18,
@@ -16,7 +18,7 @@ export function Skeleton({
   style,
 }: Props) {
   const theme = useTheme();
-  const opacity = useAnimatedValue(0.45);
+  const [opacity] = useState(() => new Animated.Value(0.45));
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -24,12 +26,12 @@ export function Skeleton({
         Animated.timing(opacity, {
           toValue: 0.85,
           duration: 650,
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
         Animated.timing(opacity, {
           toValue: 0.45,
           duration: 650,
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
       ]),
     );

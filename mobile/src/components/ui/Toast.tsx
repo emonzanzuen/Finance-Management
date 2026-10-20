@@ -7,11 +7,13 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Animated, StyleSheet, useAnimatedValue, View } from 'react-native';
+import { Animated, Platform, StyleSheet, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
+
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 export type ToastVariant = 'success' | 'error' | 'info';
 
@@ -30,7 +32,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [toast, setToast] = useState<ToastData | null>(null);
-  const opacity = useAnimatedValue(0);
+  const [opacity] = useState(() => new Animated.Value(0));
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = useCallback(
@@ -40,14 +42,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       Animated.timing(opacity, {
         toValue: 1,
         duration: 200,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }).start();
 
       timerRef.current = setTimeout(() => {
         Animated.timing(opacity, {
           toValue: 0,
           duration: 200,
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }).start(() => setToast(null));
       }, 2800);
     },

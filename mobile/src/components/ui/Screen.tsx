@@ -6,11 +6,12 @@ import { useTheme } from '@/theme/useTheme';
 type Props = {
   children: ReactNode;
   scroll?: boolean;
+  padded?: boolean;
   style?: ViewStyle;
 };
 
 /** Safe-area aware screen container using theme background. */
-export function Screen({ children, scroll = false, style }: Props) {
+export function Screen({ children, scroll = false, padded = true, style }: Props) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const container: ViewStyle = {
@@ -18,7 +19,9 @@ export function Screen({ children, scroll = false, style }: Props) {
     backgroundColor: theme.colors.background,
     paddingTop: insets.top,
   };
-  const content: ViewStyle = { padding: theme.spacing.lg, gap: theme.spacing.lg, ...style };
+  const content: ViewStyle = padded
+    ? { padding: theme.spacing.lg, gap: theme.spacing.lg, ...style }
+    : { flex: 1, ...style };
 
   if (scroll) {
     return (

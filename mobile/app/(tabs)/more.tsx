@@ -98,6 +98,30 @@ export default function MoreScreen() {
     }
   };
 
+  const menuItems = [
+    {
+      key: 'categories',
+      icon: 'tag' as const,
+      title: t('categories.title'),
+      subtitle: t('more.categories_subtitle'),
+      onPress: () => router.push('/categories'),
+    },
+    {
+      key: 'reports',
+      icon: 'pie-chart' as const,
+      title: t('reports.title'),
+      subtitle: t('more.reports_subtitle'),
+      onPress: () => router.push('/reports'),
+    },
+    {
+      key: 'settings',
+      icon: 'settings' as const,
+      title: t('settings.title'),
+      subtitle: t('more.settings_subtitle'),
+      onPress: () => router.push('/settings'),
+    },
+  ];
+
   return (
     <Screen scroll>
       <AppText variant="title">{t('nav.more')}</AppText>
@@ -128,30 +152,35 @@ export default function MoreScreen() {
         </Card>
       ) : null}
 
-      <Card style={{ padding: 0, overflow: 'hidden' }}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push('/categories')}
-          style={({ pressed }) => [
-            styles.menuItem,
-            {
-              minHeight: theme.sizes.touchTarget,
-              paddingHorizontal: theme.spacing.lg,
-              paddingVertical: theme.spacing.md,
-              gap: theme.spacing.md,
-              backgroundColor: pressed ? theme.colors.surfaceAlt : theme.colors.surface,
-            },
-          ]}
-        >
-          <Feather name="tag" size={theme.sizes.icon} color={theme.colors.primary} />
-          <View style={{ flex: 1 }}>
-            <AppText variant="bodyStrong">{t('categories.title')}</AppText>
-            <AppText variant="caption" muted>
-              {t('more.categories_subtitle')}
-            </AppText>
-          </View>
-          <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
-        </Pressable>
+      <Card style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
+        {menuItems.map((item, idx) => (
+          <Pressable
+            key={item.key}
+            accessibilityRole="button"
+            onPress={item.onPress}
+            style={({ pressed }) => [
+              styles.menuItem,
+              {
+                minHeight: theme.sizes.touchTarget,
+                paddingHorizontal: theme.spacing.lg,
+                paddingVertical: theme.spacing.md,
+                gap: theme.spacing.md,
+                backgroundColor: pressed ? theme.colors.surfaceAlt : theme.colors.surface,
+                borderBottomWidth: idx < menuItems.length - 1 ? 1 : 0,
+                borderBottomColor: theme.colors.border,
+              },
+            ]}
+          >
+            <Feather name={item.icon} size={theme.sizes.icon} color={theme.colors.primary} />
+            <View style={{ flex: 1 }}>
+              <AppText variant="bodyStrong">{item.title}</AppText>
+              <AppText variant="caption" muted>
+                {item.subtitle}
+              </AppText>
+            </View>
+            <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
+          </Pressable>
+        ))}
       </Card>
 
       <ServerCheckCard />
