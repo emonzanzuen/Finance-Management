@@ -29,12 +29,18 @@ import {
   useBudgets,
   useCreateBudget,
   useDeleteBudget,
+  useTopUpBudget,
   useUpdateBudget,
 } from '@/hooks/useBudgets';
 import { useCategories } from '@/hooks/useCategories';
 import { useCurrencies } from '@/hooks/useCurrencies';
 import { useTranslation } from '@/i18n/useTranslation';
-import { budgetFormSchema, type BudgetFormValues } from '@/schemas/budget';
+import {
+  budgetFormSchema,
+  topUpBudgetFormSchema,
+  type BudgetFormValues,
+  type TopUpBudgetFormValues,
+} from '@/schemas/budget';
 import { useTheme } from '@/theme/useTheme';
 import { ApiError, type BudgetItem, type BudgetStatus } from '@/types/api';
 import { getCurrentWibMonthYear } from '@/utils/format';
@@ -54,11 +60,23 @@ export default function BudgetScreen() {
   const createMutation = useCreateBudget();
   const updateMutation = useUpdateBudget();
   const deleteMutation = useDeleteBudget();
+  const topUpMutation = useTopUpBudget();
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<BudgetItem | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [deletingBudget, setDeletingBudget] = useState<BudgetItem | null>(null);
+
+  // Quick Top-up state (BUD-09)
+  const [topUpTarget, setTopUpTarget] = useState<BudgetItem | null>(null);
+  const [topUpError, setTopUpError] = useState<string | null>(null);
+
+  const topUpForm = useForm<TopUpBudgetFormValues>({
+    resolver: zodResolver(topUpBudgetFormSchema),
+    defaultValues: {
+      amount: 0,
+    },
+  });
 
   const {
     control,
@@ -127,6 +145,36 @@ export default function BudgetScreen() {
       budgetAmount: item.budgetAmount,
     });
     setSheetOpen(true);
+  };
+
+  const openTopUpModal = (item: BudgetItem) => {
+    setTopUpTarget(item);
+    setTopUpError(null);
+    topUpForm.reset({ amount: 0 });
+  };
+
+  const onSubmitTopUp = async (values: TopUpBudgetFormValues) => {
+    if (!topUpTarget) return;
+    setTopUpError(null);
+    try {
+      await topUpMutation.mutateAsync({
+        id: topUpTarget.id,
+        input: {
+          amount: values.amount,
+          source: 'manual',
+        },
+      });
+      setTopUpTarget(null);
+      showToast(t('budget.top_up_toast'), 'success');
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const key = `errors.${err.code}`;
+        const translated = t(key);
+        setTopUpError(translated !== key ? translated : err.message);
+      } else {
+        setTopUpError(t('errors.UNKNOWN'));
+      }
+    }
   };
 
   const onSubmit = async (values: BudgetFormValues) => {
@@ -394,6 +442,13 @@ export default function BudgetScreen() {
                       </AppText>
                     </View>
                   </View>
+
+                  {/* Quick Top-Up Button (BUD-09) */}
+                  <Button
+                    variant="secondary"
+                    label={t('budget.top_up_btn')}
+                    onPress={() => openTopUpModal(item)}
+                  />
                 </Card>
               );
             }}
@@ -505,6 +560,98 @@ export default function BudgetScreen() {
             </View>
           </View>
         </View>
+      </BottomSheet>
+
+      {/* Quick Top-Up Budget Bottom Sheet (BUD-09) */}
+      <BottomSheet
+        visible={Boolean(topUpTarget)}
+        onClose={() => setTopUpTarget(null)}
+        title={t('budget.top_up_title')}
+      >
+        {topUpTarget ? (
+          <View style={{ gap: theme.spacing.md }}>
+            <View
+              style={[
+                styles.infoNotice,
+                {
+                  backgroundColor: theme.colors.surfaceAlt,
+                  borderColor: theme.colors.border,
+                  borderRadius: theme.radius.control,
+                  padding: theme.spacing.md,
+                  gap: theme.spacing.sm,
+                  alignItems: 'center',
+                },
+              ]}
+            >
+              <CategoryChip
+                name={topUpTarget.category.name}
+                color={topUpTarget.category.color}
+              />
+              <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                <AppText variant="caption" muted>
+                  {t('budget.total_budget')}
+                </AppText>
+                <AppText variant="bodyStrong">{formatAmount(topUpTarget.budgetAmount)}</AppText>
+              </View>
+            </View>
+
+            {topUpError ? (
+              <View
+                style={[
+                  styles.errorBox,
+                  {
+                    backgroundColor: `${theme.colors.danger}18`,
+                    borderColor: theme.colors.danger,
+                    borderRadius: theme.radius.control,
+                    padding: theme.spacing.md,
+                    gap: theme.spacing.sm,
+                  },
+                ]}
+              >
+                <Feather name="alert-circle" size={18} color={theme.colors.danger} />
+                <AppText variant="caption" color={theme.colors.danger} style={{ flex: 1 }}>
+                  {topUpError}
+                </AppText>
+              </View>
+            ) : null}
+
+            <Controller
+              control={topUpForm.control}
+              name="amount"
+              render={({ field: { onChange, value } }) => (
+                <AmountField
+                  label={t('budget.top_up_amount')}
+                  value={value}
+                  onChangeValue={onChange}
+                  rates={rates}
+                  error={
+                    topUpForm.formState.errors.amount?.message
+                      ? t(topUpForm.formState.errors.amount.message)
+                      : undefined
+                  }
+                />
+              )}
+            />
+
+            <View style={[styles.sheetButtons, { gap: theme.spacing.sm }]}>
+              <View style={{ flex: 1 }}>
+                <Button
+                  variant="secondary"
+                  label={t('common.cancel')}
+                  disabled={topUpMutation.isPending}
+                  onPress={() => setTopUpTarget(null)}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button
+                  label={t('common.save')}
+                  loading={topUpMutation.isPending}
+                  onPress={topUpForm.handleSubmit(onSubmitTopUp)}
+                />
+              </View>
+            </View>
+          </View>
+        ) : null}
       </BottomSheet>
 
       {/* Delete Confirmation */}

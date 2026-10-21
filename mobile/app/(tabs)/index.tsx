@@ -18,13 +18,15 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker';
 import { Screen } from '@/components/ui/Screen';
 import { SkeletonList } from '@/components/ui/Skeleton';
-import { useToast } from '@/components/ui/Toast';
+import { TransactionDetailSheet } from '@/components/ui/TransactionDetailSheet';
 import { useAuth } from '@/context/AuthContext';
 import { usePreferences } from '@/context/PreferencesContext';
 import { useCurrencies } from '@/hooks/useCurrencies';
 import { useDashboardSummary } from '@/hooks/useDashboard';
+import { useUnreadNotificationCount } from '@/hooks/useNotifications';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useTheme } from '@/theme/useTheme';
+import type { Transaction } from '@/types/api';
 import { formatDateDisplay, getCurrentWibMonthYear } from '@/utils/format';
 
 function getGreetingKey(): string {
@@ -42,13 +44,15 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const { language } = usePreferences();
   const { formatAmount } = useCurrencies();
-  const { showToast } = useToast();
 
   const initialPeriod = getCurrentWibMonthYear();
   const [month, setMonth] = useState(initialPeriod.month);
   const [year, setYear] = useState(initialPeriod.year);
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
   const summaryQuery = useDashboardSummary(month, year);
+  const unreadQuery = useUnreadNotificationCount();
+  const unreadCount = unreadQuery.data ?? 0;
   const data = summaryQuery.data;
 
   const greetingText = t(getGreetingKey());
@@ -65,13 +69,16 @@ export default function HomeScreen() {
         refreshControl={
           <RefreshControl
             refreshing={summaryQuery.isRefetching && !summaryQuery.isLoading}
-            onRefresh={() => void summaryQuery.refetch()}
+            onRefresh={() => {
+              void summaryQuery.refetch();
+              void unreadQuery.refetch();
+            }}
             tintColor={theme.colors.primary}
           />
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Header with Greeting & Bell Icon (DASH-01) */}
+        {/* Header with Greeting & Bell Icon + Unread Badge (DASH-01, DASH-09) */}
         <View style={[styles.headerRow, { gap: theme.spacing.md }]}>
           <View style={{ flex: 1 }}>
             <AppText variant="caption" muted>
@@ -82,7 +89,7 @@ export default function HomeScreen() {
           </View>
           <Pressable
             accessibilityRole="button"
-            onPress={() => showToast(t('common.coming_soon'), 'info')}
+            onPress={() => router.push('/notifications')}
             style={[
               styles.bellBtn,
               {
@@ -95,6 +102,25 @@ export default function HomeScreen() {
             ]}
           >
             <Feather name="bell" size={20} color={theme.colors.text} />
+            {unreadCount > 0 ? (
+              <View
+                style={[
+                  styles.bellBadge,
+                  {
+                    backgroundColor: theme.colors.danger,
+                    borderRadius: theme.radius.full,
+                  },
+                ]}
+              >
+                <AppText
+                  variant="caption"
+                  color={theme.colors.onPrimary}
+                  style={styles.bellBadgeText}
+                >
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </AppText>
+              </View>
+            ) : null}
           </Pressable>
         </View>
 
@@ -284,9 +310,7 @@ export default function HomeScreen() {
                       <Pressable
                         key={tx.id}
                         accessibilityRole="button"
-                        onPress={() =>
-                          router.push({ pathname: '/transaction/form', params: { id: tx.id } })
-                        }
+                        onPress={() => setSelectedTx(tx)}
                         style={[
                           styles.txRow,
                           {
@@ -338,6 +362,12 @@ export default function HomeScreen() {
       >
         <Feather name="plus" size={26} color={theme.colors.onPrimary} />
       </Pressable>
+
+      {/* Transaction Detail BottomSheet (TRX-08) */}
+      <TransactionDetailSheet
+        transaction={selectedTx}
+        onClose={() => setSelectedTx(null)}
+      />
     </Screen>
   );
 }
@@ -349,9 +379,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   bellBtn: {
+    position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 12,
   },
   cardHeaderRow: {
     flexDirection: 'row',

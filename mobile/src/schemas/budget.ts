@@ -11,3 +11,14 @@ export const budgetFormSchema = z.object({
 });
 
 export type BudgetFormValues = z.infer<typeof budgetFormSchema>;
+
+export const topUpBudgetFormSchema = z.object({
+  amount: z
+    .number({ invalid_type_error: 'budget.validation.amount_positive' })
+    .int('budget.validation.amount_positive')
+    .positive('budget.validation.amount_positive')
+    .max(MAX_AMOUNT_IDR, 'budget.validation.amount_max'),
+});
+
+export type TopUpBudgetFormValues = z.infer<typeof topUpBudgetFormSchema>;
+

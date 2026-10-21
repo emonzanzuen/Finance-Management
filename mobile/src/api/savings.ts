@@ -79,3 +79,8 @@ export async function createSavingsDeposit(
     goal: normalizeGoal(d.goal),
   };
 }
+
+export async function deleteSavingsDeposit(goalId: string, entryId: string): Promise<void> {
+  await apiClient.delete(`/savings-goals/${goalId}/deposits/${entryId}`);
+}
+

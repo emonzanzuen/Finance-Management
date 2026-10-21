@@ -51,6 +51,9 @@ function RootNavigator() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="categories" />
           <Stack.Screen name="reports" />
+          <Stack.Screen name="import" />
+          <Stack.Screen name="notifications" />
+          <Stack.Screen name="profile" />
           <Stack.Screen name="settings" />
           <Stack.Screen name="transaction/form" />
         </Stack.Protected>

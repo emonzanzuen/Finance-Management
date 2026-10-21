@@ -160,9 +160,9 @@ export function getMaxWibDateForPicker(): Date {
 
 /** Formats YYYY-MM-DD for human-readable display in the active language. */
 export function formatDateDisplay(dateStr: string, language: Language): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr);
   if (!match) return dateStr;
-  const date = parseDateStringToLocal(dateStr);
+  const date = parseDateStringToLocal(`${match[1]}-${match[2]}-${match[3]}`);
   const locale = language === 'en' ? 'en-US' : 'id-ID';
   return new Intl.DateTimeFormat(locale, {
     day: 'numeric',
@@ -170,3 +170,46 @@ export function formatDateDisplay(dateStr: string, language: Language): string {
     year: 'numeric',
   }).format(date);
 }
+
+/** Formats an ISO 8601 timestamp into a human-readable date & time in the active language. */
+export function formatDateTimeDisplay(isoStr: string | undefined, language: Language): string {
+  if (!isoStr) return '-';
+  const date = new Date(isoStr);
+  if (Number.isNaN(date.getTime())) return isoStr;
+  const locale = language === 'en' ? 'en-US' : 'id-ID';
+  return new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+/** Formats an ISO 8601 timestamp into relative time (e.g. "Baru saja", "5 menit lalu"). */
+export function formatRelativeTime(
+  isoStr: string,
+  t: (key: string, params?: Record<string, string | number>) => string,
+  language: Language,
+): string {
+  const date = new Date(isoStr);
+  if (Number.isNaN(date.getTime())) return isoStr;
+  const diffSec = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (diffSec < 60) {
+    return t('common.just_now');
+  }
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) {
+    return `${diffMin} ${t('common.minutes_ago')}`;
+  }
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) {
+    return `${diffHours} ${t('common.hours_ago')}`;
+  }
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays <= 7) {
+    return `${diffDays} ${t('common.days_ago')}`;
+  }
+  return formatDateTimeDisplay(isoStr, language);
+}
+

@@ -29,7 +29,9 @@ import { useCurrencies } from '@/hooks/useCurrencies';
 import {
   useCreateSavingsDeposit,
   useCreateSavingsGoal,
+  useDeleteSavingsDeposit,
   useDeleteSavingsGoal,
+  useSavingsGoalDetail,
   useSavingsGoals,
   useUpdateSavingsGoal,
 } from '@/hooks/useSavings';
@@ -44,6 +46,7 @@ import { useTheme } from '@/theme/useTheme';
 import {
   ApiError,
   type DepositExceedsTargetDetails,
+  type SavingsEntry,
   type SavingsGoal,
   type SavingsGoalStatus,
 } from '@/types/api';
@@ -65,6 +68,7 @@ export default function SavingsScreen() {
   const updateGoalMutation = useUpdateSavingsGoal();
   const deleteGoalMutation = useDeleteSavingsGoal();
   const depositMutation = useCreateSavingsDeposit();
+  const deleteDepositMutation = useDeleteSavingsDeposit();
 
   // Goal Create/Edit modal state
   const [goalSheetOpen, setGoalSheetOpen] = useState(false);
@@ -77,6 +81,11 @@ export default function SavingsScreen() {
 
   // Delete confirmation state
   const [deletingGoal, setDeletingGoal] = useState<SavingsGoal | null>(null);
+
+  // Goal Detail & Deposit History BottomSheet state (SAV-03, SAV-07)
+  const [detailGoalId, setDetailGoalId] = useState<string | undefined>(undefined);
+  const [deletingEntry, setDeletingEntry] = useState<SavingsEntry | null>(null);
+  const goalDetailQuery = useSavingsGoalDetail(detailGoalId);
 
   const goalForm = useForm<SavingsGoalFormValues>({
     resolver: zodResolver(savingsGoalFormSchema),
@@ -239,9 +248,31 @@ export default function SavingsScreen() {
     try {
       await deleteGoalMutation.mutateAsync(target.id);
       setDeletingGoal(null);
+      if (detailGoalId === target.id) {
+        setDetailGoalId(undefined);
+      }
       showToast(t('savings.deleted_toast'), 'success');
     } catch (err) {
       setDeletingGoal(null);
+      if (err instanceof ApiError) {
+        showToast(err.message, 'error');
+      } else {
+        showToast(t('errors.UNKNOWN'), 'error');
+      }
+    }
+  };
+
+  const handleConfirmDeleteDeposit = async () => {
+    if (!detailGoalId || !deletingEntry) return;
+    try {
+      await deleteDepositMutation.mutateAsync({
+        goalId: detailGoalId,
+        entryId: deletingEntry.id,
+      });
+      setDeletingEntry(null);
+      showToast(t('savings.deposit_deleted_toast'), 'success');
+    } catch (err) {
+      setDeletingEntry(null);
       if (err instanceof ApiError) {
         showToast(err.message, 'error');
       } else {
@@ -433,13 +464,24 @@ export default function SavingsScreen() {
                     </View>
                   </View>
 
-                  {/* Deposit Button disabled when goal is completed (BR-13) */}
-                  <Button
-                    variant={isCompleted ? 'secondary' : 'primary'}
-                    label={isCompleted ? t('savings.completed') : t('savings.deposit')}
-                    disabled={isCompleted}
-                    onPress={() => openDepositModal(item)}
-                  />
+                  {/* Deposit & History Buttons (BR-13, SAV-07) */}
+                  <View style={[styles.sheetButtons, { gap: theme.spacing.sm }]}>
+                    <View style={{ flex: 1 }}>
+                      <Button
+                        variant="secondary"
+                        label={t('savings.history')}
+                        onPress={() => setDetailGoalId(item.id)}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Button
+                        variant={isCompleted ? 'secondary' : 'primary'}
+                        label={isCompleted ? t('savings.completed') : t('savings.deposit')}
+                        disabled={isCompleted}
+                        onPress={() => openDepositModal(item)}
+                      />
+                    </View>
+                  </View>
                 </Card>
               );
             }}
@@ -690,6 +732,123 @@ export default function SavingsScreen() {
         ) : null}
       </BottomSheet>
 
+      {/* Goal Detail & Deposit History BottomSheet (SAV-03, SAV-07) */}
+      <BottomSheet
+        visible={Boolean(detailGoalId)}
+        onClose={() => setDetailGoalId(undefined)}
+        title={goalDetailQuery.data?.title ?? t('savings.history')}
+      >
+        {goalDetailQuery.isLoading ? (
+          <SkeletonList count={3} itemHeight={64} />
+        ) : goalDetailQuery.isError ? (
+          <ErrorState
+            message={goalDetailQuery.error.message}
+            onRetry={() => void goalDetailQuery.refetch()}
+          />
+        ) : goalDetailQuery.data ? (
+          <View style={{ gap: theme.spacing.md }}>
+            <View
+              style={[
+                styles.remainingBox,
+                {
+                  backgroundColor: theme.colors.surfaceAlt,
+                  borderRadius: theme.radius.control,
+                  padding: theme.spacing.md,
+                  gap: theme.spacing.xs,
+                },
+              ]}
+            >
+              <View style={styles.summaryNumbersRow}>
+                <AppText variant="caption" muted>
+                  {t('savings.current')} / {t('savings.target')}
+                </AppText>
+                <AppText variant="bodyStrong">
+                  {Math.round(goalDetailQuery.data.percentage)}%
+                </AppText>
+              </View>
+              <ProgressBar
+                percentage={goalDetailQuery.data.percentage}
+                color={getStatusColor(goalDetailQuery.data.status)}
+              />
+              <AppText variant="bodyStrong">
+                {formatAmount(goalDetailQuery.data.currentAmount)} /{' '}
+                {formatAmount(goalDetailQuery.data.targetAmount)}
+              </AppText>
+            </View>
+
+            <AppText variant="bodyStrong">{t('savings.history')}</AppText>
+
+            {goalDetailQuery.data.entries.length === 0 ? (
+              <EmptyState icon="inbox" title={t('savings.no_deposits')} />
+            ) : (
+              <View style={{ gap: theme.spacing.xs }}>
+                {goalDetailQuery.data.entries.map((entry) => {
+                  const isWithdrawal = entry.entryType === 'withdrawal';
+                  return (
+                    <View
+                      key={entry.id}
+                      style={[
+                        styles.entryRow,
+                        {
+                          borderColor: theme.colors.border,
+                          backgroundColor: theme.colors.surface,
+                          borderRadius: theme.radius.control,
+                          padding: theme.spacing.md,
+                          gap: theme.spacing.sm,
+                        },
+                      ]}
+                    >
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <AppText
+                          variant="bodyStrong"
+                          color={isWithdrawal ? theme.colors.danger : theme.colors.income}
+                        >
+                          {isWithdrawal ? '-' : '+'} {formatAmount(entry.amount)}
+                        </AppText>
+                        <AppText variant="caption" muted>
+                          {formatDateDisplay(entry.depositDate, language)}
+                        </AppText>
+                        {entry.note ? (
+                          <AppText variant="caption">{entry.note}</AppText>
+                        ) : null}
+                      </View>
+                      {!isWithdrawal ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => setDeletingEntry(entry)}
+                          style={[
+                            styles.iconBtn,
+                            {
+                              minWidth: theme.sizes.touchTarget,
+                              minHeight: theme.sizes.touchTarget,
+                            },
+                          ]}
+                        >
+                          <Feather name="trash-2" size={17} color={theme.colors.danger} />
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        ) : null}
+      </BottomSheet>
+
+      {/* Delete Deposit Confirmation (SAV-03) */}
+      <ConfirmDialog
+        visible={Boolean(deletingEntry)}
+        title={t('savings.delete_deposit_title')}
+        message={t('savings.delete_deposit_confirm')}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        danger
+        loading={deleteDepositMutation.isPending}
+        onCancel={() => setDeletingEntry(null)}
+        onConfirm={() => void handleConfirmDeleteDeposit()}
+      />
+
       {/* Delete Goal Confirmation */}
       <ConfirmDialog
         visible={Boolean(deletingGoal)}
@@ -755,5 +914,10 @@ const styles = StyleSheet.create({
   sheetButtons: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  entryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
   },
 });

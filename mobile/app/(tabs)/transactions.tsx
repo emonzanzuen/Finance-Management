@@ -23,6 +23,7 @@ import { Select, type SelectOption } from '@/components/ui/Select';
 import { SkeletonList } from '@/components/ui/Skeleton';
 import { TextField } from '@/components/ui/TextField';
 import { useToast } from '@/components/ui/Toast';
+import { TransactionDetailSheet } from '@/components/ui/TransactionDetailSheet';
 import { usePreferences } from '@/context/PreferencesContext';
 import { useCategories } from '@/hooks/useCategories';
 import { useCurrencies } from '@/hooks/useCurrencies';
@@ -80,6 +81,7 @@ export default function TransactionsScreen() {
   // Filter sheet state
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [deletingTx, setDeletingTx] = useState<Transaction | null>(null);
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -296,60 +298,69 @@ export default function TransactionsScreen() {
             const sign = isIncome ? '+' : '-';
 
             return (
-              <Card style={{ gap: theme.spacing.xs }}>
-                <View style={[styles.cardTopRow, { gap: theme.spacing.sm }]}>
-                  <CategoryChip name={item.category.name} color={item.category.color} />
-                  <AppText variant="caption" muted style={{ flex: 1 }}>
-                    {formatDateDisplay(item.transactionDate, language)}
-                  </AppText>
-                  <AppText variant="bodyStrong" color={amountColor}>
-                    {sign} {formatCurrency(item.amount, currency, rates, language)}
-                  </AppText>
-                </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setSelectedTx(item)}
+              >
+                <Card style={{ gap: theme.spacing.xs }}>
+                  <View style={[styles.cardTopRow, { gap: theme.spacing.sm }]}>
+                    <CategoryChip name={item.category.name} color={item.category.color} />
+                    <AppText variant="caption" muted style={{ flex: 1 }}>
+                      {formatDateDisplay(item.transactionDate, language)}
+                    </AppText>
+                    <AppText variant="bodyStrong" color={amountColor}>
+                      {sign} {formatCurrency(item.amount, currency, rates, language)}
+                    </AppText>
+                  </View>
 
-                <View style={[styles.cardBottomRow, { gap: theme.spacing.sm }]}>
-                  <AppText
-                    muted={!item.description}
-                    numberOfLines={2}
-                    style={{ flex: 1 }}
-                  >
-                    {item.description || item.category.name}
-                  </AppText>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() =>
-                      router.push({
-                        pathname: '/transaction/form',
-                        params: { id: item.id },
-                      })
-                    }
-                    style={[
-                      styles.actionIconBtn,
-                      {
-                        borderRadius: theme.radius.control,
-                        backgroundColor: theme.colors.surfaceAlt,
-                        borderColor: theme.colors.border,
-                      },
-                    ]}
-                  >
-                    <Feather name="edit-2" size={16} color={theme.colors.text} />
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => setDeletingTx(item)}
-                    style={[
-                      styles.actionIconBtn,
-                      {
-                        borderRadius: theme.radius.control,
-                        backgroundColor: theme.colors.surfaceAlt,
-                        borderColor: theme.colors.border,
-                      },
-                    ]}
-                  >
-                    <Feather name="trash-2" size={16} color={theme.colors.danger} />
-                  </Pressable>
-                </View>
-              </Card>
+                  <View style={[styles.cardBottomRow, { gap: theme.spacing.sm }]}>
+                    <AppText
+                      muted={!item.description}
+                      numberOfLines={2}
+                      style={{ flex: 1 }}
+                    >
+                      {item.description || item.category.name}
+                    </AppText>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        router.push({
+                          pathname: '/transaction/form',
+                          params: { id: item.id },
+                        });
+                      }}
+                      style={[
+                        styles.actionIconBtn,
+                        {
+                          borderRadius: theme.radius.control,
+                          backgroundColor: theme.colors.surfaceAlt,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                    >
+                      <Feather name="edit-2" size={16} color={theme.colors.text} />
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setDeletingTx(item);
+                      }}
+                      style={[
+                        styles.actionIconBtn,
+                        {
+                          borderRadius: theme.radius.control,
+                          backgroundColor: theme.colors.surfaceAlt,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                    >
+                      <Feather name="trash-2" size={16} color={theme.colors.danger} />
+                    </Pressable>
+                  </View>
+                </Card>
+              </Pressable>
             );
           }}
         />
@@ -434,6 +445,12 @@ export default function TransactionsScreen() {
         loading={deleteMutation.isPending}
         onCancel={() => setDeletingTx(null)}
         onConfirm={() => void handleConfirmDelete()}
+      />
+
+      {/* Transaction Detail BottomSheet (TRX-08) */}
+      <TransactionDetailSheet
+        transaction={selectedTx}
+        onClose={() => setSelectedTx(null)}
       />
     </Screen>
   );

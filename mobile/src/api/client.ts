@@ -53,11 +53,13 @@ export function normalizeError(error: unknown): ApiError {
       const body: unknown = error.response?.data;
       if (isErrorBody(body)) {
         const code = body.error.code;
+        const serverMessage = body.error.message;
         return new ApiError({
           code,
-          message: resolveLocalizedMessage(code, body.error.message),
+          message: resolveLocalizedMessage(code, serverMessage),
           details: body.error.details,
           status,
+          serverMessage,
         });
       }
       const fallbackCode = status === 401 ? 'UNAUTHORIZED' : status === 429 ? 'RATE_LIMITED' : 'INTERNAL_ERROR';
