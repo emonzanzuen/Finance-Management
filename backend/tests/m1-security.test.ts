@@ -164,6 +164,12 @@ describe('M1 authentication and ownership security', () => {
     expect(lastResponse?.status).toBe(429);
     expect(lastResponse?.body.error.code).toBe('RATE_LIMITED');
     expect(JSON.stringify(lastResponse?.body)).not.toContain('unknown@example.com');
+    const otherEmail = await request(app).post('/api/v1/auth/login').send({
+      email: 'different@example.com',
+      password: 'Incorrect123',
+    });
+    expect(otherEmail.status).toBe(401);
+    expect(otherEmail.body.error.code).toBe('INVALID_CREDENTIALS');
   });
 
   it('logs in with a valid Argon2id password and starts a new seven-day session', async () => {

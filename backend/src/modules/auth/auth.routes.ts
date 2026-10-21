@@ -2,8 +2,9 @@ import { Router } from 'express';
 import rateLimit, { type Options } from 'express-rate-limit';
 import type { Request } from 'express';
 import { ipKeyGenerator } from 'express-rate-limit';
-import { loginController, logoutController, registerController } from './auth.controller';
+import { changePasswordController, loginController, logoutAllController, logoutController, registerController } from './auth.controller';
 import { requireAuth } from '../../middleware/auth';
+import { createUserRateLimit } from '../../middleware/rateLimit';
 
 const authRouter = Router();
 
@@ -35,9 +36,12 @@ const limitHandler: Options['handler'] = (req, res) => {
 const loginIpLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false, handler: limitHandler });
 const loginEmailLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 5, skipSuccessfulRequests: true, keyGenerator: emailKey, standardHeaders: 'draft-7', legacyHeaders: false, handler: limitHandler });
 const registerLimiter = rateLimit({ windowMs: 60 * 60_000, limit: 5, standardHeaders: 'draft-7', legacyHeaders: false, handler: limitHandler });
+const changePasswordLimiter = createUserRateLimit(5, 15 * 60_000);
 
 authRouter.post('/auth/register', registerLimiter, registerController);
 authRouter.post('/auth/login', loginIpLimiter, loginEmailLimiter, loginController);
 authRouter.post('/auth/logout', requireAuth, logoutController);
+authRouter.post('/auth/change-password', requireAuth, changePasswordLimiter, changePasswordController);
+authRouter.post('/auth/logout-all', requireAuth, logoutAllController);
 
 export { authRouter };

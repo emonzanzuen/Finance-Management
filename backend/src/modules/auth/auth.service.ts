@@ -6,7 +6,7 @@ import { loadEnv } from '../../config/env';
 import { AppError } from '../../lib/errors';
 import { prisma } from '../../lib/prisma';
 import { DEFAULT_CATEGORIES } from '../../lib/defaultCategories';
-import type { LoginInput, RegisterInput } from './auth.schema';
+import type { ChangePasswordInput, LoginInput, RegisterInput } from './auth.schema';
 
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
 const ARGON_OPTIONS: argon2.HashOptions = {
@@ -38,7 +38,7 @@ export function toPublicUser(user: Pick<User, 'id' | 'name' | 'email' | 'avatarD
   return { id: user.id, name: user.name, email: user.email, avatar: user.avatarData };
 }
 
-function validatePassword(password: string, email: string): void {
+export function validatePassword(password: string, email: string): void {
   if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
     throw new AppError('VALIDATION_ERROR', 400, 'Password harus mengandung huruf dan angka.');
   }
@@ -138,4 +138,50 @@ export async function login(input: LoginInput, userAgent: string | undefined): P
 
 export function issueToken(userId: string, sessionId: string): string {
   return makeToken(userId, sessionId);
+}
+
+export async function changePassword(
+  userId: string,
+  input: ChangePasswordInput,
+  userAgent: string | undefined,
+): Promise<{ token: string }> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  let passwordMatches = false;
+  if (user) {
+    try {
+      passwordMatches = await argon2.verify(user.passwordHash, input.currentPassword);
+    } catch {
+      passwordMatches = false;
+    }
+  }
+  if (!user || !passwordMatches) {
+    throw new AppError('INVALID_CREDENTIALS', 401, 'Email atau password tidak valid.');
+  }
+  validatePassword(input.newPassword, user.email);
+  const passwordHash = await argon2.hash(input.newPassword, ARGON_OPTIONS);
+  const now = new Date();
+  const sessionId = randomUUID();
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: userId }, data: { passwordHash } });
+    await tx.session.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
+    await tx.session.create({
+      data: {
+        id: sessionId,
+        userId,
+        createdAt: now,
+        lastUsedAt: now,
+        expiresAt: new Date(now.getTime() + SESSION_MS),
+        userAgent: userAgent?.slice(0, 200),
+      },
+    });
+  });
+  return { token: makeToken(userId, sessionId) };
+}
+
+export async function logoutAll(userId: string): Promise<void> {
+  const now = new Date();
+  await prisma.$transaction(async (tx) => {
+    await tx.session.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
+    await tx.deviceToken.deleteMany({ where: { userId } });
+  });
 }

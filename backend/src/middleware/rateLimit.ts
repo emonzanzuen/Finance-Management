@@ -1,5 +1,5 @@
 import type { Request } from 'express';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import type { ErrorBody } from '../lib/errors';
 
 interface RequestWithRateLimit extends Request {
@@ -13,6 +13,34 @@ export function createGlobalRateLimit(limit = 120, windowMs = 60_000) {
   return rateLimit({
     windowMs,
     limit,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    handler: (req, res) => {
+      const resetTime = (req as RequestWithRateLimit).rateLimit?.resetTime;
+      const retryAfterSeconds = resetTime
+        ? Math.max(1, Math.ceil((resetTime.getTime() - Date.now()) / 1000))
+        : Math.ceil(windowMs / 1000);
+      res.setHeader('Retry-After', String(retryAfterSeconds));
+      const requestId: unknown = res.locals.requestId;
+      const body: ErrorBody & { error: { requestId?: string } } = {
+        error: {
+          code: 'RATE_LIMITED',
+          message: 'Terlalu banyak permintaan. Coba lagi nanti.',
+          details: null,
+          ...(typeof requestId === 'string' ? { requestId } : {}),
+        },
+      };
+      res.status(429).json(body);
+    },
+  });
+}
+
+/** Per-account-and-IP limit; use after requireAuth so the user id is token-derived. */
+export function createUserRateLimit(limit: number, windowMs: number) {
+  return rateLimit({
+    windowMs,
+    limit,
+    keyGenerator: (req) => `${req.auth?.userId ?? 'anonymous'}:${ipKeyGenerator(req.ip ?? '127.0.0.1')}`,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     handler: (req, res) => {

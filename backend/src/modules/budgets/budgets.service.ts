@@ -111,3 +111,42 @@ export async function deleteBudget(userId: string, id: string): Promise<void> {
   const result = await prisma.budget.deleteMany({ where: { id, userId } });
   if (result.count !== 1) throw notFound();
 }
+
+export async function topUpBudget(userId: string, id: string, amount: number) {
+  return prisma.$transaction(async (tx) => {
+    const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT id FROM budgets WHERE id = ${id}::uuid AND user_id = ${userId}::uuid FOR UPDATE
+    `);
+    if (locked.length !== 1) throw notFound();
+    const budget = await tx.budget.findFirst({
+      where: { id, userId },
+      include: { category: { select: { id: true, name: true, color: true } } },
+    });
+    if (!budget) throw notFound();
+    const nextAmount = budget.budgetAmount.add(amount);
+    if (nextAmount.gt(999_999_999_999)) {
+      throw new AppError('VALIDATION_ERROR', 400, 'Total budget melebihi batas nominal.');
+    }
+    const updateResult = await tx.budget.updateMany({ where: { id, userId }, data: { budgetAmount: nextAmount } });
+    if (updateResult.count !== 1) throw notFound();
+    const updated = await tx.budget.findFirstOrThrow({ where: { id, userId } });
+    const { start, end } = monthRange(budget.month, budget.year);
+    const aggregate = await tx.transaction.aggregate({
+      where: { userId, categoryId: budget.categoryId, type: 'expense', transactionDate: { gte: start, lt: end } },
+      _sum: { amount: true },
+    });
+    const spent = aggregate._sum.amount ?? new Prisma.Decimal(0);
+    const remaining = updated.budgetAmount.sub(spent);
+    return {
+      id: updated.id,
+      category: budget.category,
+      month: updated.month,
+      year: updated.year,
+      budgetAmount: decimalToAmount(updated.budgetAmount),
+      spentAmount: decimalToAmount(spent),
+      remaining: decimalToAmount(remaining),
+      percentage: ratioPercent(spent, updated.budgetAmount),
+      status: budgetStatus(spent, updated.budgetAmount),
+    };
+  });
+}

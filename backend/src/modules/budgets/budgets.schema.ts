@@ -14,5 +14,6 @@ export const createBudgetSchema = z.object({
   budgetAmount,
 }).strict();
 export const updateBudgetSchema = z.object({ budgetAmount }).strict();
+export const topUpBudgetSchema = z.object({ amount: budgetAmount, source: z.literal('manual') }).strict();
 
 export type CreateBudgetInput = z.infer<typeof createBudgetSchema>;
