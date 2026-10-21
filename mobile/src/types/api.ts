@@ -21,13 +21,21 @@ export class ApiError extends Error {
   readonly code: string;
   readonly details: unknown;
   readonly status: number;
+  readonly serverMessage?: string;
 
-  constructor(params: { code: string; message: string; details?: unknown; status: number }) {
+  constructor(params: {
+    code: string;
+    message: string;
+    details?: unknown;
+    status: number;
+    serverMessage?: string;
+  }) {
     super(params.message);
     this.name = 'ApiError';
     this.code = params.code;
     this.details = params.details;
     this.status = params.status;
+    this.serverMessage = params.serverMessage;
   }
 }
 
@@ -65,6 +73,22 @@ export type ProfileStats = {
 export type UserProfile = AuthUser & {
   receiptScanConsent: boolean;
   stats: ProfileStats;
+};
+
+export type UpdateProfileInput = {
+  name?: string;
+  email?: string;
+  currentPassword?: string;
+  avatar?: string | null;
+};
+
+export type ChangePasswordInput = {
+  currentPassword: string;
+  newPassword: string;
+};
+
+export type ChangePasswordResponse = {
+  token: string;
 };
 
 export type CategoryType = 'income' | 'expense';
@@ -207,6 +231,11 @@ export type UpdateBudgetInput = {
   budgetAmount: number;
 };
 
+export type TopUpBudgetInput = {
+  amount: number;
+  source: 'manual';
+};
+
 export type SavingsGoalStatus = 'in_progress' | 'almost_done' | 'completed';
 
 export type SavingsGoal = {
@@ -331,6 +360,107 @@ export type YearlyTrendMonthItem = {
 export type YearlyTrendResponse = {
   year: number;
   months: YearlyTrendMonthItem[];
+};
+
+export type ReportExportFormat = 'pdf' | 'xlsx';
+
+export type NotificationType = 'budget_warning' | 'budget_exceeded' | 'goal_completed';
+
+export type NotificationData = {
+  budgetId?: string;
+  categoryName?: string;
+  percentage?: number;
+  month?: number;
+  year?: number;
+  goalId?: string;
+  title?: string;
+};
+
+export type NotificationItem = {
+  id: string;
+  type: NotificationType;
+  isRead: boolean;
+  createdAt: string;
+  data: NotificationData;
+};
+
+export type NotificationPaginationMeta = PaginationMeta & {
+  unreadCount: number;
+};
+
+export type NotificationListParams = {
+  page?: number;
+  limit?: number;
+  unreadOnly?: boolean;
+};
+
+export type ImportColumnSpec = {
+  name: string;
+  required: boolean;
+  format?: string;
+  allowed?: string[];
+  maxLength?: number;
+  emptyCellAllowed?: boolean;
+};
+
+export type ImportSpecResponse = {
+  columns: ImportColumnSpec[];
+  ignoredColumns: string[];
+  limits: {
+    maxFileBytes: number;
+    maxRows: number;
+  };
+};
+
+export type ImportHeaderMismatchDetails = {
+  allowed?: string[];
+  ignored?: string[];
+  required?: string[];
+  unknown?: string[];
+  missing?: string[];
+};
+
+export type ImportPreviewRow = {
+  row: number;
+  status: 'valid' | 'invalid';
+  type?: CategoryType;
+  category?: string;
+  amount?: number;
+  transactionDate?: string;
+  description?: string;
+  duplicate?: boolean;
+  errors?: string[];
+};
+
+export type ImportPreviewResponse = {
+  totalRows: number;
+  validCount: number;
+  invalidCount: number;
+  duplicateCount: number;
+  unknownCategories: string[];
+  rows: ImportPreviewRow[];
+};
+
+export type UnknownCategoryMode = 'create' | 'other';
+
+export type ImportCommitRowInput = {
+  type: CategoryType;
+  category: string;
+  amount: number;
+  transactionDate: string;
+  description?: string;
+};
+
+export type ImportCommitInput = {
+  unknownCategoryMode: UnknownCategoryMode;
+  skipDuplicates: boolean;
+  rows: ImportCommitRowInput[];
+};
+
+export type ImportCommitResponse = {
+  imported: number;
+  skipped: number;
+  createdCategories: string[];
 };
 
 // GET /health: the contract only lists the endpoint (public, server status); body is kept loose.

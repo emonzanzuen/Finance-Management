@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { AppText } from '@/components/ui/AppText';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -10,6 +11,7 @@ import { Screen } from '@/components/ui/Screen';
 import { getApiHost } from '@/api/client';
 import { useAuth } from '@/context/AuthContext';
 import { useHealthCheck } from '@/hooks/useHealthCheck';
+import { useUnreadNotificationCount } from '@/hooks/useNotifications';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useTheme } from '@/theme/useTheme';
 
@@ -85,6 +87,9 @@ export default function MoreScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { user, logout } = useAuth();
+  const unreadQuery = useUnreadNotificationCount();
+  const unreadCount = unreadQuery.data ?? 0;
+
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -100,10 +105,27 @@ export default function MoreScreen() {
 
   const menuItems = [
     {
+      key: 'profile',
+      icon: 'user' as const,
+      title: t('profile.title'),
+      subtitle: t('more.profile_subtitle'),
+      badge: undefined as string | undefined,
+      onPress: () => router.push('/profile'),
+    },
+    {
+      key: 'notifications',
+      icon: 'bell' as const,
+      title: t('common.notifications'),
+      subtitle: t('more.notifications_subtitle'),
+      badge: unreadCount > 0 ? String(unreadCount) : undefined,
+      onPress: () => router.push('/notifications'),
+    },
+    {
       key: 'categories',
       icon: 'tag' as const,
       title: t('categories.title'),
       subtitle: t('more.categories_subtitle'),
+      badge: undefined as string | undefined,
       onPress: () => router.push('/categories'),
     },
     {
@@ -111,13 +133,23 @@ export default function MoreScreen() {
       icon: 'pie-chart' as const,
       title: t('reports.title'),
       subtitle: t('more.reports_subtitle'),
+      badge: undefined as string | undefined,
       onPress: () => router.push('/reports'),
+    },
+    {
+      key: 'import',
+      icon: 'upload' as const,
+      title: t('import.title'),
+      subtitle: t('more.import_subtitle'),
+      badge: undefined as string | undefined,
+      onPress: () => router.push('/import'),
     },
     {
       key: 'settings',
       icon: 'settings' as const,
       title: t('settings.title'),
       subtitle: t('more.settings_subtitle'),
+      badge: undefined as string | undefined,
       onPress: () => router.push('/settings'),
     },
   ];
@@ -127,29 +159,44 @@ export default function MoreScreen() {
       <AppText variant="title">{t('nav.more')}</AppText>
 
       {user ? (
-        <Card>
-          <View style={[styles.row, { gap: theme.spacing.md }]}>
-            <View
-              style={[
-                styles.avatar,
-                {
-                  backgroundColor: theme.colors.primary,
-                  borderRadius: theme.radius.full,
-                },
-              ]}
-            >
-              <AppText variant="bodyStrong" color={theme.colors.onPrimary}>
-                {user.name.trim().charAt(0).toUpperCase() || 'U'}
-              </AppText>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/profile')}>
+          <Card>
+            <View style={[styles.row, { gap: theme.spacing.md }]}>
+              {user.avatar ? (
+                <Image
+                  source={{ uri: user.avatar }}
+                  style={[
+                    styles.avatar,
+                    {
+                      borderRadius: theme.radius.full,
+                    },
+                  ]}
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.avatar,
+                    {
+                      backgroundColor: theme.colors.primary,
+                      borderRadius: theme.radius.full,
+                    },
+                  ]}
+                >
+                  <AppText variant="bodyStrong" color={theme.colors.onPrimary}>
+                    {user.name.trim().charAt(0).toUpperCase() || 'U'}
+                  </AppText>
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <AppText variant="bodyStrong">{user.name}</AppText>
+                <AppText variant="caption" muted>
+                  {user.email}
+                </AppText>
+              </View>
+              <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
             </View>
-            <View style={{ flex: 1 }}>
-              <AppText variant="bodyStrong">{user.name}</AppText>
-              <AppText variant="caption" muted>
-                {user.email}
-              </AppText>
-            </View>
-          </View>
-        </Card>
+          </Card>
+        </Pressable>
       ) : null}
 
       <Card style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
@@ -178,6 +225,7 @@ export default function MoreScreen() {
                 {item.subtitle}
               </AppText>
             </View>
+            {item.badge ? <Badge label={item.badge} variant="danger" /> : null}
             <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
           </Pressable>
         ))}

@@ -19,12 +19,15 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker';
 import { Screen } from '@/components/ui/Screen';
 import { SkeletonList } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
+import { TransactionDetailSheet } from '@/components/ui/TransactionDetailSheet';
 import { usePreferences } from '@/context/PreferencesContext';
 import { useCurrencies } from '@/hooks/useCurrencies';
-import { useMonthlyReport, useYearlyTrend } from '@/hooks/useReports';
+import { useExportReport, useMonthlyReport, useYearlyTrend } from '@/hooks/useReports';
 import { useTransactionsInfinite } from '@/hooks/useTransactions';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useTheme } from '@/theme/useTheme';
+import { ApiError, type ReportExportFormat, type Transaction } from '@/types/api';
 import {
   formatDateDisplay,
   getCurrentWibMonthYear,
@@ -37,21 +40,39 @@ export default function ReportsScreen() {
   const { t } = useTranslation();
   const { language } = usePreferences();
   const { formatAmount } = useCurrencies();
+  const { showToast } = useToast();
 
   const initialPeriod = getCurrentWibMonthYear();
   const [month, setMonth] = useState(initialPeriod.month);
   const [year, setYear] = useState(initialPeriod.year);
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
   const dateRange = useMemo(() => getMonthDateRange(month, year), [month, year]);
 
   const monthlyQuery = useMonthlyReport(month, year);
   const trendQuery = useYearlyTrend(year);
+  const exportMutation = useExportReport();
   const txQuery = useTransactionsInfinite({
     dateFrom: dateRange.dateFrom,
     dateTo: dateRange.dateTo,
     sortBy: 'transactionDate',
     sortOrder: 'desc',
   });
+
+  const handleExport = async (format: ReportExportFormat) => {
+    try {
+      await exportMutation.mutateAsync({ format, month, year });
+      showToast(t('reports.export_success', { format: format.toUpperCase() }), 'success');
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const key = `errors.${err.code}`;
+        const translated = t(key);
+        showToast(translated !== key ? translated : err.message, 'error');
+      } else {
+        showToast(t('errors.UNKNOWN'), 'error');
+      }
+    }
+  };
 
   const transactions = useMemo(
     () => txQuery.data?.pages.flatMap((p) => p.data) ?? [],
@@ -89,7 +110,7 @@ export default function ReportsScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+        {/* Header with Export Buttons (EXP-01..05) */}
         <View style={[styles.headerRow, { gap: theme.spacing.sm }]}>
           <Pressable
             accessibilityRole="button"
@@ -110,6 +131,52 @@ export default function ReportsScreen() {
             <AppText variant="caption" muted>
               {t('reports.subtitle')}
             </AppText>
+          </View>
+          <View style={[styles.exportRow, { gap: theme.spacing.xs }]}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={exportMutation.isPending}
+              onPress={() => void handleExport('pdf')}
+              style={[
+                styles.exportBtn,
+                {
+                  minHeight: 40,
+                  paddingHorizontal: theme.spacing.sm,
+                  borderRadius: theme.radius.control,
+                  borderColor: theme.colors.border,
+                  backgroundColor: theme.colors.surface,
+                  gap: 4,
+                  opacity: exportMutation.isPending ? 0.6 : 1,
+                },
+              ]}
+            >
+              <Feather name="download" size={14} color={theme.colors.danger} />
+              <AppText variant="caption" style={{ fontWeight: '600' }}>
+                {t('reports.export_pdf')}
+              </AppText>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              disabled={exportMutation.isPending}
+              onPress={() => void handleExport('xlsx')}
+              style={[
+                styles.exportBtn,
+                {
+                  minHeight: 40,
+                  paddingHorizontal: theme.spacing.sm,
+                  borderRadius: theme.radius.control,
+                  borderColor: theme.colors.border,
+                  backgroundColor: theme.colors.surface,
+                  gap: 4,
+                  opacity: exportMutation.isPending ? 0.6 : 1,
+                },
+              ]}
+            >
+              <Feather name="download" size={14} color={theme.colors.income} />
+              <AppText variant="caption" style={{ fontWeight: '600' }}>
+                {t('reports.export_excel')}
+              </AppText>
+            </Pressable>
           </View>
         </View>
 
@@ -217,9 +284,7 @@ export default function ReportsScreen() {
                       <Pressable
                         key={tx.id}
                         accessibilityRole="button"
-                        onPress={() =>
-                          router.push({ pathname: '/transaction/form', params: { id: tx.id } })
-                        }
+                        onPress={() => setSelectedTx(tx)}
                         style={[
                           styles.txRow,
                           {
@@ -270,6 +335,11 @@ export default function ReportsScreen() {
           </>
         ) : null}
       </ScrollView>
+
+      <TransactionDetailSheet
+        transaction={selectedTx}
+        onClose={() => setSelectedTx(null)}
+      />
     </Screen>
   );
 }
@@ -282,6 +352,16 @@ const styles = StyleSheet.create({
   backBtn: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  exportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  exportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
   },
   summaryGrid: {
     flexDirection: 'row',

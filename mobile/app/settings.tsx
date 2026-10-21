@@ -215,7 +215,7 @@ export default function SettingsScreen() {
           })}
         </View>
 
-        {/* Additional Supported Currencies */}
+            {/* Additional Supported Currencies */}
         <View style={[styles.currencyGrid, { gap: theme.spacing.xs }]}>
           {CURRENCY_CODES.filter((c) => !PRIMARY_CURRENCIES.includes(c)).map((code) => {
             const active = currency === code;
@@ -244,7 +244,7 @@ export default function SettingsScreen() {
                   color={active ? theme.colors.onPrimary : theme.colors.text}
                   style={{ fontWeight: '600' }}
                 >
-                  {code}
+                  {code} ({CURRENCY_SYMBOLS[code].trim()})
                 </AppText>
               </Pressable>
             );
@@ -264,6 +264,19 @@ export default function SettingsScreen() {
           ]}
         >
           <AppText variant="bodyStrong">{t('settings.exchange_rates')}</AppText>
+          {currency !== 'IDR' && currency !== 'USD' && currency !== 'EUR' ? (
+            <View style={styles.rateRow}>
+              <AppText variant="caption" muted>
+                1 {currency}
+              </AppText>
+              <AppText variant="bodyStrong">
+                ≈ Rp{' '}
+                {Math.round(1 / (rates[currency] || 1)).toLocaleString(
+                  language === 'en' ? 'en-US' : 'id-ID',
+                )}
+              </AppText>
+            </View>
+          ) : null}
           <View style={styles.rateRow}>
             <AppText variant="caption" muted>
               1 USD
@@ -296,9 +309,15 @@ export default function SettingsScreen() {
         />
       </Card>
 
-      {/* About Card */}
+      {/* About Card (SET-05) */}
       <Card>
-        <AppText variant="subtitle">{t('settings.about')}</AppText>
+        <View style={styles.rateRow}>
+          <AppText variant="subtitle">{t('settings.about')}</AppText>
+          <AppText variant="caption" muted>
+            v1.0.0
+          </AppText>
+        </View>
+        <AppText variant="bodyStrong">FinManage Android</AppText>
         <AppText variant="caption" muted>
           {t('settings.about_description')}
         </AppText>

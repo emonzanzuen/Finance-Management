@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createSavingsDeposit,
   createSavingsGoal,
+  deleteSavingsDeposit,
   deleteSavingsGoal,
   getSavingsGoalById,
   getSavingsGoals,
@@ -80,3 +81,15 @@ export function useCreateSavingsDeposit() {
     },
   });
 }
+
+export function useDeleteSavingsDeposit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ goalId, entryId }: { goalId: string; entryId: string }) =>
+      deleteSavingsDeposit(goalId, entryId),
+    onSuccess: async () => {
+      await invalidateAfterSavingsMutation(queryClient);
+    },
+  });
+}
+

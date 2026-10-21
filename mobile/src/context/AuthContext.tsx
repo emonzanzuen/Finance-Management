@@ -8,14 +8,24 @@ import {
   type ReactNode,
 } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { getProfile, loginUser, logoutUser, registerUser } from '@/api/auth';
+import {
+  changePassword as changePasswordApi,
+  getProfile,
+  loginUser,
+  logoutAllUsers,
+  logoutUser,
+  registerUser,
+  updateProfile as updateProfileApi,
+} from '@/api/auth';
 import { setUnauthorizedHandler } from '@/api/client';
 import { getHealth } from '@/api/health';
 import { clearToken, loadToken, saveToken } from '@/api/tokenStore';
 import type {
   AuthUser,
+  ChangePasswordInput,
   LoginInput,
   RegisterInput,
+  UpdateProfileInput,
   UserProfile,
 } from '@/types/api';
 
@@ -29,6 +39,9 @@ type AuthValue = {
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
+  logoutAll: () => Promise<void>;
+  changePassword: (input: ChangePasswordInput) => Promise<void>;
+  updateProfile: (input: UpdateProfileInput) => Promise<UserProfile>;
   signIn: (token: string, user: AuthUser) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -147,6 +160,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [clearLocalSession]);
 
+  const logoutAll = useCallback(async () => {
+    try {
+      await logoutAllUsers();
+    } catch {
+      // Best-effort server session revocation across all devices; local cleanup always runs
+    } finally {
+      await clearLocalSession();
+    }
+  }, [clearLocalSession]);
+
+  const changePassword = useCallback(async (input: ChangePasswordInput) => {
+    const res = await changePasswordApi(input);
+    await saveToken(res.token);
+    setStatus('signedIn');
+  }, []);
+
+  const updateProfile = useCallback(
+    async (input: UpdateProfileInput): Promise<UserProfile> => {
+      const updated = await updateProfileApi(input);
+      setProfile(updated);
+      setUser({
+        id: updated.id,
+        name: updated.name,
+        email: updated.email,
+        avatar: updated.avatar,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['profile'] });
+      return updated;
+    },
+    [queryClient],
+  );
+
   const refreshProfile = useCallback(async () => {
     const prof = await getProfile();
     setProfile(prof);
@@ -174,11 +219,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
+      logoutAll,
+      changePassword,
+      updateProfile,
       signIn,
       signOut: logout,
       refreshProfile,
     }),
-    [status, warmingUp, user, profile, login, register, logout, signIn, refreshProfile],
+    [
+      status,
+      warmingUp,
+      user,
+      profile,
+      login,
+      register,
+      logout,
+      logoutAll,
+      changePassword,
+      updateProfile,
+      signIn,
+      refreshProfile,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

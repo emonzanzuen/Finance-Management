@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createBudget, deleteBudget, getBudgets, updateBudget } from '@/api/budgets';
-import type { CreateBudgetInput, UpdateBudgetInput } from '@/types/api';
+import { createBudget, deleteBudget, getBudgets, topUpBudget, updateBudget } from '@/api/budgets';
+import type { CreateBudgetInput, TopUpBudgetInput, UpdateBudgetInput } from '@/types/api';
 
 export const BUDGETS_QUERY_KEY = ['budgets'] as const;
 
@@ -50,3 +50,15 @@ export function useDeleteBudget() {
     },
   });
 }
+
+export function useTopUpBudget() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: TopUpBudgetInput }) =>
+      topUpBudget(id, input),
+    onSuccess: async () => {
+      await invalidateAfterBudgetMutation(queryClient);
+    },
+  });
+}
+

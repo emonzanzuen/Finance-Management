@@ -22,7 +22,9 @@ import { Select, type SelectOption } from '@/components/ui/Select';
 import { SkeletonList } from '@/components/ui/Skeleton';
 import { TextField } from '@/components/ui/TextField';
 import { useToast } from '@/components/ui/Toast';
+import { usePreferences } from '@/context/PreferencesContext';
 import { useCategories } from '@/hooks/useCategories';
+import { useCurrencies } from '@/hooks/useCurrencies';
 import {
   useCreateTransaction,
   useDeleteTransaction,
@@ -36,13 +38,15 @@ import {
 } from '@/schemas/transaction';
 import { useTheme } from '@/theme/useTheme';
 import { ApiError, type CategoryType } from '@/types/api';
-import { getTodayWibString } from '@/utils/format';
+import { formatDateDisplay, getTodayWibString } from '@/utils/format';
 
 export default function TransactionFormScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { language } = usePreferences();
+  const { rates, formatAmount } = useCurrencies();
   const params = useLocalSearchParams<{ id?: string }>();
   const transactionId = typeof params.id === 'string' && params.id.length > 0 ? params.id : undefined;
   const isEditMode = Boolean(transactionId);
@@ -75,6 +79,8 @@ export default function TransactionFormScreen() {
 
   const selectedType = useWatch({ control, name: 'type' });
   const selectedCategoryId = useWatch({ control, name: 'categoryId' });
+  const watchedAmount = useWatch({ control, name: 'amount' });
+  const watchedDate = useWatch({ control, name: 'transactionDate' });
 
   // Populate form when editing existing transaction
   useEffect(() => {
@@ -302,6 +308,7 @@ export default function TransactionFormScreen() {
                     label={t('transactions.amount')}
                     value={value}
                     onChangeValue={onChange}
+                    rates={rates}
                     error={errors.amount?.message ? t(errors.amount.message) : undefined}
                   />
                 )}
@@ -379,6 +386,66 @@ export default function TransactionFormScreen() {
                 )}
               />
 
+              {/* Pre-Save Transaction Summary (TRX-07) */}
+              <View
+                style={[
+                  styles.summaryBox,
+                  {
+                    backgroundColor: theme.colors.surfaceAlt,
+                    borderColor: theme.colors.border,
+                    borderRadius: theme.radius.control,
+                    padding: theme.spacing.md,
+                    gap: theme.spacing.xs,
+                  },
+                ]}
+              >
+                <AppText variant="bodyStrong">{t('transactions.summary_before_save')}</AppText>
+                <View style={styles.summaryRow}>
+                  <AppText variant="caption" muted>
+                    {t('transactions.type')}
+                  </AppText>
+                  <AppText
+                    variant="bodyStrong"
+                    color={
+                      selectedType === 'expense' ? theme.colors.expense : theme.colors.income
+                    }
+                  >
+                    {selectedType === 'expense'
+                      ? t('transactions.expense')
+                      : t('transactions.income')}
+                  </AppText>
+                </View>
+                <View style={styles.summaryRow}>
+                  <AppText variant="caption" muted>
+                    {t('transactions.category')}
+                  </AppText>
+                  <AppText variant="bodyStrong">
+                    {categoriesForType.find((c) => c.id === selectedCategoryId)?.name ?? '-'}
+                  </AppText>
+                </View>
+                <View style={styles.summaryRow}>
+                  <AppText variant="caption" muted>
+                    {t('transactions.date')}
+                  </AppText>
+                  <AppText variant="bodyStrong">
+                    {watchedDate ? formatDateDisplay(watchedDate, language) : '-'}
+                  </AppText>
+                </View>
+                <View style={styles.summaryRow}>
+                  <AppText variant="caption" muted>
+                    {t('transactions.amount')}
+                  </AppText>
+                  <AppText
+                    variant="bodyStrong"
+                    color={
+                      selectedType === 'expense' ? theme.colors.expense : theme.colors.income
+                    }
+                  >
+                    {formatAmount(watchedAmount || 0)}
+                  </AppText>
+                </View>
+              </View>
+
               {/* Submit / Cancel Buttons */}
               <View style={[styles.typeRow, { gap: theme.spacing.sm, marginTop: theme.spacing.xs }]}>
                 <Button
@@ -442,5 +509,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
+  },
+  summaryBox: {
+    borderWidth: 1,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
 });

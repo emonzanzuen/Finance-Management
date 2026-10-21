@@ -3,6 +3,7 @@ import type {
   BudgetItem,
   BudgetsResponse,
   CreateBudgetInput,
+  TopUpBudgetInput,
   UpdateBudgetInput,
 } from '@/types/api';
 import { apiClient } from './client';
@@ -47,3 +48,9 @@ export async function updateBudget(id: string, input: UpdateBudgetInput): Promis
 export async function deleteBudget(id: string): Promise<void> {
   await apiClient.delete(`/budgets/${id}`);
 }
+
+export async function topUpBudget(id: string, input: TopUpBudgetInput): Promise<BudgetItem> {
+  const response = await apiClient.post<ApiSuccess<BudgetItem>>(`/budgets/${id}/top-up`, input);
+  return normalizeBudgetItem(response.data.data);
+}
+
