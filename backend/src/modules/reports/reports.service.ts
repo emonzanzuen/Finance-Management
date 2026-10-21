@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { AppError } from '../../lib/errors';
 import { currentWibMonth, monthRange } from '../../lib/dates';
 import { decimalToAmount, ratioPercent } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
@@ -63,4 +64,21 @@ export async function getTrendReport(userId: string, year: number) {
       return { month, income: decimalToAmount(values.income), expense: decimalToAmount(values.expense) };
     }),
   };
+}
+
+export async function buildReportExportData(userId: string, month: number, year: number) {
+  const { start, end } = monthRange(month, year);
+  const [user, transactions, report] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
+    prisma.transaction.findMany({
+      where: { userId, transactionDate: { gte: start, lt: end } },
+      include: { category: { select: { name: true } } },
+      orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }],
+      take: 5001,
+    }),
+    getMonthlyReport(userId, month, year),
+  ]);
+  if (transactions.length > 5000) throw new AppError('VALIDATION_ERROR', 400, 'Periode memiliki lebih dari 5.000 transaksi. Persempit periode laporan.');
+  if (!user) throw new AppError('UNAUTHORIZED', 401, 'Sesi tidak valid.');
+  return { userName: user.name, month, year, transactions, report };
 }

@@ -17,6 +17,8 @@ import { savingsRouter } from './modules/savings/savings.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
 import { reportsRouter } from './modules/reports/reports.routes';
 import { currenciesRouter } from './modules/currencies/currencies.routes';
+import { notificationsRouter } from './modules/notifications/notifications.routes';
+import { importsRouter } from './modules/imports/imports.routes';
 
 export interface CreateAppOptions {
   nodeEnv?: 'development' | 'test' | 'production';
@@ -81,7 +83,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
     }),
   );
 
-  app.use(express.json({ limit: '100kb' }));
+  app.use(express.json({ limit: '1mb' }));
 
   app.use(createGlobalRateLimit(options.rateLimitMax, options.rateLimitWindowMs));
 
@@ -95,6 +97,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use('/api/v1', dashboardRouter);
   app.use('/api/v1', reportsRouter);
   app.use('/api/v1', currenciesRouter);
+  app.use('/api/v1', notificationsRouter);
+  app.use('/api/v1', importsRouter);
   if (options.extraRoutes) {
     app.use('/api/v1', options.extraRoutes);
   }

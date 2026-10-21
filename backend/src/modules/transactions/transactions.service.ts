@@ -67,7 +67,7 @@ export async function getTransaction(userId: string, id: string) {
   return transactionResponse(item);
 }
 
-async function refreshBudgetNotifications(tx: Prisma.TransactionClient, userId: string, categoryId: string, date: Date): Promise<void> {
+export async function refreshBudgetNotifications(tx: Prisma.TransactionClient, userId: string, categoryId: string, date: Date): Promise<void> {
   const month = date.getUTCMonth() + 1;
   const year = date.getUTCFullYear();
   const { start, end } = monthRange(month, year);

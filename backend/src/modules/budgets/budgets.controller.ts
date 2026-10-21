@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { authenticatedUserId } from '../../middleware/auth';
-import { budgetIdSchema, createBudgetSchema, listBudgetsQuery, updateBudgetSchema } from './budgets.schema';
-import { createBudget, deleteBudget, listBudgets, updateBudget } from './budgets.service';
+import { budgetIdSchema, createBudgetSchema, listBudgetsQuery, topUpBudgetSchema, updateBudgetSchema } from './budgets.schema';
+import { createBudget, deleteBudget, listBudgets, topUpBudget, updateBudget } from './budgets.service';
 
 export async function listBudgetsController(req: Request, res: Response): Promise<void> {
   const query = listBudgetsQuery.parse(req.query);
@@ -23,4 +23,10 @@ export async function deleteBudgetController(req: Request, res: Response): Promi
   const id = budgetIdSchema.parse(req.params.id);
   await deleteBudget(authenticatedUserId(req), id);
   res.status(204).end();
+}
+
+export async function topUpBudgetController(req: Request, res: Response): Promise<void> {
+  const id = budgetIdSchema.parse(req.params.id);
+  const input = topUpBudgetSchema.parse(req.body);
+  res.status(200).json({ data: await topUpBudget(authenticatedUserId(req), id, input.amount) });
 }
