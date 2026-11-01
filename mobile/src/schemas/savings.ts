@@ -38,3 +38,19 @@ export const savingsDepositFormSchema = z.object({
 });
 
 export type SavingsDepositFormValues = z.infer<typeof savingsDepositFormSchema>;
+
+export const savingsWithdrawalFormSchema = z.object({
+  amount: z
+    .number({ invalid_type_error: 'savings.validation.withdraw_positive' })
+    .int('savings.validation.withdraw_positive')
+    .positive('savings.validation.withdraw_positive')
+    .max(MAX_AMOUNT_IDR, 'savings.validation.amount_max'),
+  depositDate: z
+    .string()
+    .min(1, 'savings.validation.date_required')
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'savings.validation.date_required')
+    .refine((val) => val <= getTodayWibString(), 'savings.validation.date_future'),
+  note: z.string().trim().max(255, 'savings.validation.note_max').optional(),
+});
+
+export type SavingsWithdrawalFormValues = z.infer<typeof savingsWithdrawalFormSchema>;

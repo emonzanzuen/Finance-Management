@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -40,6 +40,16 @@ import { useTheme } from '@/theme/useTheme';
 import { ApiError, type CategoryType } from '@/types/api';
 import { formatDateDisplay, getTodayWibString } from '@/utils/format';
 
+type ScanData = {
+  type: 'expense' | 'income';
+  amount: number | null;
+  transactionDate: string | null;
+  description: string | null;
+  suggestedCategoryId: string | null;
+  confidence: 'high' | 'medium' | 'low';
+  warnings: string[];
+};
+
 export default function TransactionFormScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -47,18 +57,60 @@ export default function TransactionFormScreen() {
   const { showToast } = useToast();
   const { language } = usePreferences();
   const { rates, formatAmount } = useCurrencies();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; scanData?: string }>();
   const transactionId = typeof params.id === 'string' && params.id.length > 0 ? params.id : undefined;
   const isEditMode = Boolean(transactionId);
 
+  // Parse scan data from URL params
+  const scanData = useMemo<ScanData | null>(() => {
+    if (!params.scanData) return null;
+    try {
+      return JSON.parse(params.scanData) as ScanData;
+    } catch {
+      return null;
+    }
+  }, [params.scanData]);
+
   const [serverError, setServerError] = useState<string | null>(null);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [dismissedScanParam, setDismissedScanParam] = useState<string | null>(null);
+  const scanBannerVisible = Boolean(scanData) && dismissedScanParam !== (params.scanData ?? null);
 
   const detailQuery = useTransactionDetail(transactionId);
   const categoriesQuery = useCategories();
   const createMutation = useCreateTransaction();
   const updateMutation = useUpdateTransaction();
   const deleteMutation = useDeleteTransaction();
+
+  // Determine initial form values based on scan data or defaults
+  const getInitialValues = () => {
+    if (scanData) {
+      const categoryExists = Boolean(
+        scanData.suggestedCategoryId &&
+          categoriesQuery.data?.some((c) => c.id === scanData.suggestedCategoryId),
+      );
+      return {
+        type: scanData.type ?? ('expense' as const),
+        categoryId:
+          categoryExists && scanData.suggestedCategoryId
+            ? scanData.suggestedCategoryId
+            : '',
+        amount:
+          typeof scanData.amount === 'number' && scanData.amount > 0
+            ? scanData.amount
+            : 0,
+        transactionDate: scanData.transactionDate || getTodayWibString(),
+        description: scanData.description ?? '',
+      };
+    }
+    return {
+      type: 'expense' as const,
+      categoryId: '',
+      amount: 0,
+      transactionDate: getTodayWibString(),
+      description: '',
+    };
+  };
 
   const {
     control,
@@ -68,19 +120,41 @@ export default function TransactionFormScreen() {
     formState: { errors },
   } = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
-    defaultValues: {
-      type: 'expense',
-      categoryId: '',
-      amount: 0,
-      transactionDate: getTodayWibString(),
-      description: '',
-    },
+    defaultValues: getInitialValues(),
   });
 
   const selectedType = useWatch({ control, name: 'type' });
   const selectedCategoryId = useWatch({ control, name: 'categoryId' });
   const watchedAmount = useWatch({ control, name: 'amount' });
   const watchedDate = useWatch({ control, name: 'transactionDate' });
+
+  const dismissScanBanner = () => {
+    setDismissedScanParam(params.scanData ?? null);
+  };
+
+  // Sync form when scanData param arrives or changes
+  const lastScanParamRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!scanData || !params.scanData || params.scanData === lastScanParamRef.current) return;
+    lastScanParamRef.current = params.scanData;
+    const matchingCategories = (categoriesQuery.data ?? []).filter(
+      (c) => c.type === (scanData.type ?? 'expense'),
+    );
+    const suggestedExists = Boolean(
+      scanData.suggestedCategoryId &&
+        matchingCategories.some((c) => c.id === scanData.suggestedCategoryId),
+    );
+    reset({
+      type: scanData.type ?? 'expense',
+      categoryId:
+        suggestedExists && scanData.suggestedCategoryId
+          ? scanData.suggestedCategoryId
+          : (matchingCategories[0]?.id ?? ''),
+      amount: typeof scanData.amount === 'number' && scanData.amount > 0 ? scanData.amount : 0,
+      transactionDate: scanData.transactionDate || getTodayWibString(),
+      description: scanData.description ?? '',
+    });
+  }, [params.scanData, scanData, categoriesQuery.data, reset]);
 
   // Populate form when editing existing transaction
   useEffect(() => {
@@ -118,6 +192,20 @@ export default function TransactionFormScreen() {
       setValue('categoryId', categoriesForType[0]?.id ?? '');
     }
   }, [categoriesQuery.data, categoriesForType, selectedCategoryId, setValue]);
+
+  // Apply the scanned category suggestion once categories finish loading
+  const scanCategoryAppliedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!scanData || !params.scanData || scanCategoryAppliedRef.current === params.scanData) return;
+    if (!categoriesQuery.data) return;
+    scanCategoryAppliedRef.current = params.scanData;
+    const suggested = scanData.suggestedCategoryId;
+    if (!suggested) return;
+    const exists = categoriesQuery.data.some(
+      (c) => c.id === suggested && c.type === scanData.type,
+    );
+    if (exists) setValue('categoryId', suggested);
+  }, [categoriesQuery.data, params.scanData, scanData, setValue]);
 
   const handleTypeChange = (nextType: CategoryType) => {
     setValue('type', nextType, { shouldValidate: true });
@@ -187,6 +275,49 @@ export default function TransactionFormScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <Screen scroll>
+        {/* Scan Result Banner */}
+        {scanBannerVisible && scanData && (
+          <View
+            style={[
+              styles.scanBanner,
+              {
+                backgroundColor: `${theme.colors.info}15`,
+                borderColor: theme.colors.info,
+                borderRadius: theme.radius.control,
+                padding: theme.spacing.md,
+                gap: theme.spacing.sm,
+                marginBottom: theme.spacing.md,
+              },
+            ]}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
+                <Feather name="camera" size={18} color={theme.colors.info} />
+                <AppText variant="bodyStrong" color={theme.colors.info}>
+                  {t('transactions.scan_result_banner')}
+                </AppText>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={dismissScanBanner}
+                style={{ padding: theme.spacing.xs }}
+              >
+                <Feather name="x" size={18} color={theme.colors.textMuted} />
+              </Pressable>
+            </View>
+            <View style={{ gap: theme.spacing.xs }}>
+              <AppText variant="caption" color={theme.colors.info}>
+                {t('transactions.scan_confidence', { confidence: t(`transactions.scan.confidence_${scanData.confidence}`) })}
+              </AppText>
+              {(scanData.warnings?.length ?? 0) > 0 && (
+                <AppText variant="caption" color={theme.colors.warning}>
+                  {t('transactions.scan.warnings_title')} {scanData.warnings.join(', ')}
+                </AppText>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Header */}
         <View style={[styles.headerRow, { gap: theme.spacing.sm }]}>
           <Pressable
@@ -210,7 +341,25 @@ export default function TransactionFormScreen() {
               {isEditMode ? t('transactions.edit') : t('transactions.add')}
             </AppText>
           </View>
-          {isEditMode ? (
+          {!isEditMode ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('transactions.scan_receipt')}
+              onPress={() => router.push('/transaction/scan')}
+              style={[
+                styles.iconBtn,
+                {
+                  minWidth: theme.sizes.touchTarget,
+                  minHeight: theme.sizes.touchTarget,
+                  borderRadius: theme.radius.control,
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.primary,
+                },
+              ]}
+            >
+              <Feather name="camera" size={18} color={theme.colors.primary} />
+            </Pressable>
+          ) : (
             <Pressable
               accessibilityRole="button"
               onPress={() => setConfirmDeleteOpen(true)}
@@ -227,7 +376,7 @@ export default function TransactionFormScreen() {
             >
               <Feather name="trash-2" size={18} color={theme.colors.danger} />
             </Pressable>
-          ) : null}
+          )}
         </View>
 
         {isEditMode && detailQuery.isLoading ? (
@@ -494,6 +643,11 @@ const styles = StyleSheet.create({
   iconBtn: {
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+  },
+  scanBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
   },
   errorBanner: {

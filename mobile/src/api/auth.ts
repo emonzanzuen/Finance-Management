@@ -3,8 +3,10 @@ import type {
   AuthSessionResponse,
   ChangePasswordInput,
   ChangePasswordResponse,
+  ForgotPasswordInput,
   LoginInput,
   RegisterInput,
+  ResetPasswordInput,
   UpdateProfileInput,
   UserProfile,
 } from '@/types/api';
@@ -34,6 +36,14 @@ export async function changePassword(input: ChangePasswordInput): Promise<Change
     input,
   );
   return response.data.data;
+}
+
+export async function forgotPassword(input: ForgotPasswordInput): Promise<void> {
+  await apiClient.post('/auth/forgot-password', input);
+}
+
+export async function resetPassword(input: ResetPasswordInput): Promise<void> {
+  await apiClient.post('/auth/reset-password', input);
 }
 
 export async function getProfile(): Promise<UserProfile> {

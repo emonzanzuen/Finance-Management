@@ -124,6 +124,14 @@ export default function LoginScreen() {
             )}
           />
 
+          <View style={{ alignSelf: 'flex-end', paddingTop: theme.spacing.xs }}>
+            <Link href="/forgot-password">
+              <AppText color={theme.colors.primary} variant="bodyStrong">
+                {t('auth.forgot_password_link')}
+              </AppText>
+            </Link>
+          </View>
+
           <Button
             label={t('auth.login')}
             loading={isSubmitting}

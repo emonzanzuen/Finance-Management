@@ -11,6 +11,8 @@ import { Feather } from '@expo/vector-icons';
 import { CategoryPieChart } from '@/components/charts/CategoryPieChart';
 import { TrendLineChart } from '@/components/charts/TrendLineChart';
 import { AppText } from '@/components/ui/AppText';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { CategoryChip } from '@/components/ui/CategoryChip';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -49,6 +51,7 @@ export default function HomeScreen() {
   const [month, setMonth] = useState(initialPeriod.month);
   const [year, setYear] = useState(initialPeriod.year);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+  const [fabSheetOpen, setFabSheetOpen] = useState(false);
 
   const summaryQuery = useDashboardSummary(month, year);
   const unreadQuery = useUnreadNotificationCount();
@@ -341,6 +344,75 @@ export default function HomeScreen() {
                 </View>
               )}
             </Card>
+
+            {/* Financial Insight Cards (DASH-10, BR-23) */}
+            {data.insights && data.insights.length > 0 && (
+              <View style={{ gap: theme.spacing.md }}>
+                {data.insights.map((insight, idx) => (
+                  <Card key={idx} style={{ gap: theme.spacing.sm }}>
+                    {insight.type === 'expense_change' && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
+                        <Feather
+                          name={insight.direction === 'up' ? 'trending-up' : 'trending-down'}
+                          size={20}
+                          color={insight.direction === 'up' ? theme.colors.expense : theme.colors.income}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <AppText variant="bodyStrong">
+                            {t('dashboard.insight_expense_change_title')}
+                          </AppText>
+                          <AppText variant="caption" muted>
+                            {t('dashboard.insight_expense_change_desc', {
+                              direction: insight.direction === 'up' ? t('dashboard.insight_up') : t('dashboard.insight_down'),
+                              percent: insight.percent?.toFixed(1) ?? '0',
+                            })}
+                          </AppText>
+                        </View>
+                      </View>
+                    )}
+                    {insight.type === 'top_category' && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
+                        <View
+                          style={{
+                            width: 12,
+                            height: 12,
+                            borderRadius: 6,
+                            backgroundColor: insight.categoryName ? 'transparent' : theme.colors.warning,
+                          }}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <AppText variant="bodyStrong">
+                            {t('dashboard.insight_top_category_title')}
+                          </AppText>
+                          <AppText variant="caption" muted>
+                            {t('dashboard.insight_top_category_desc', {
+                              category: insight.categoryName ?? '-',
+                              amount: insight.amount ? formatAmount(insight.amount) : '-',
+                              percent: insight.percent?.toFixed(1) ?? '0',
+                            })}
+                          </AppText>
+                        </View>
+                      </View>
+                    )}
+                    {insight.type === 'budgets_near_limit' && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
+                        <Feather name="alert-triangle" size={20} color={theme.colors.warning} />
+                        <View style={{ flex: 1 }}>
+                          <AppText variant="bodyStrong">
+                            {t('dashboard.insight_budgets_near_limit_title')}
+                          </AppText>
+                          <AppText variant="caption" muted>
+                            {t('dashboard.insight_budgets_near_limit_desc', {
+                              count: insight.count ?? 0,
+                            })}
+                          </AppText>
+                        </View>
+                      </View>
+                    )}
+                  </Card>
+                ))}
+              </View>
+            )}
           </>
         ) : null}
       </ScrollView>
@@ -349,7 +421,7 @@ export default function HomeScreen() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('transactions.add')}
-        onPress={() => router.push('/transaction/form')}
+        onPress={() => setFabSheetOpen(true)}
         style={[
           styles.fab,
           {
@@ -368,6 +440,33 @@ export default function HomeScreen() {
         transaction={selectedTx}
         onClose={() => setSelectedTx(null)}
       />
+
+      {/* FAB Options Bottom Sheet */}
+      <BottomSheet
+        visible={fabSheetOpen}
+        onClose={() => setFabSheetOpen(false)}
+        title={t('transactions.add')}
+      >
+        <View style={{ gap: theme.spacing.md, paddingTop: theme.spacing.md }}>
+          <Button
+            icon="edit"
+            label={t('transactions.add_manual')}
+            onPress={() => {
+              setFabSheetOpen(false);
+              router.push('/transaction/form');
+            }}
+          />
+          <Button
+            variant="secondary"
+            icon="camera"
+            label={t('transactions.scan_receipt')}
+            onPress={() => {
+              setFabSheetOpen(false);
+              router.push('/transaction/scan');
+            }}
+          />
+        </View>
+      </BottomSheet>
     </Screen>
   );
 }

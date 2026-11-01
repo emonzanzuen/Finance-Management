@@ -29,6 +29,7 @@ import { useCurrencies } from '@/hooks/useCurrencies';
 import {
   useCreateSavingsDeposit,
   useCreateSavingsGoal,
+  useCreateSavingsWithdrawal,
   useDeleteSavingsDeposit,
   useDeleteSavingsGoal,
   useSavingsGoalDetail,
@@ -39,8 +40,10 @@ import { useTranslation } from '@/i18n/useTranslation';
 import {
   savingsDepositFormSchema,
   savingsGoalFormSchema,
+  savingsWithdrawalFormSchema,
   type SavingsDepositFormValues,
   type SavingsGoalFormValues,
+  type SavingsWithdrawalFormValues,
 } from '@/schemas/savings';
 import { useTheme } from '@/theme/useTheme';
 import {
@@ -69,6 +72,7 @@ export default function SavingsScreen() {
   const deleteGoalMutation = useDeleteSavingsGoal();
   const depositMutation = useCreateSavingsDeposit();
   const deleteDepositMutation = useDeleteSavingsDeposit();
+  const withdrawMutation = useCreateSavingsWithdrawal();
 
   // Goal Create/Edit modal state
   const [goalSheetOpen, setGoalSheetOpen] = useState(false);
@@ -78,6 +82,10 @@ export default function SavingsScreen() {
   // Deposit modal state
   const [depositGoal, setDepositGoal] = useState<SavingsGoal | null>(null);
   const [depositFormError, setDepositFormError] = useState<string | null>(null);
+
+  // Withdraw modal state (SAV-08, BR-13)
+  const [withdrawGoal, setWithdrawGoal] = useState<SavingsGoal | null>(null);
+  const [withdrawFormError, setWithdrawFormError] = useState<string | null>(null);
 
   // Delete confirmation state
   const [deletingGoal, setDeletingGoal] = useState<SavingsGoal | null>(null);
@@ -100,6 +108,15 @@ export default function SavingsScreen() {
 
   const depositForm = useForm<SavingsDepositFormValues>({
     resolver: zodResolver(savingsDepositFormSchema),
+    defaultValues: {
+      amount: 0,
+      depositDate: getTodayWibString(),
+      note: '',
+    },
+  });
+
+  const withdrawForm = useForm<SavingsWithdrawalFormValues>({
+    resolver: zodResolver(savingsWithdrawalFormSchema),
     defaultValues: {
       amount: 0,
       depositDate: getTodayWibString(),
@@ -154,6 +171,16 @@ export default function SavingsScreen() {
     setDepositGoal(goal);
     setDepositFormError(null);
     depositForm.reset({
+      amount: 0,
+      depositDate: getTodayWibString(),
+      note: '',
+    });
+  };
+
+  const openWithdrawModal = (goal: SavingsGoal) => {
+    setWithdrawGoal(goal);
+    setWithdrawFormError(null);
+    withdrawForm.reset({
       amount: 0,
       depositDate: getTodayWibString(),
       note: '',
@@ -238,6 +265,46 @@ export default function SavingsScreen() {
         setDepositFormError(translated !== `errors.${err.code}` ? translated : err.message);
       } else {
         setDepositFormError(t('errors.UNKNOWN'));
+      }
+    }
+  };
+
+  const onSubmitWithdraw = async (values: SavingsWithdrawalFormValues) => {
+    if (!withdrawGoal) return;
+    setWithdrawFormError(null);
+
+    if (values.amount > withdrawGoal.currentAmount) {
+      setWithdrawFormError(
+        t('savings.exceeds_saved', { saved: formatAmount(withdrawGoal.currentAmount) }),
+      );
+      return;
+    }
+
+    const cleanNote = values.note && values.note.trim() !== '' ? values.note.trim() : undefined;
+
+    try {
+      await withdrawMutation.mutateAsync({
+        goalId: withdrawGoal.id,
+        input: {
+          amount: values.amount,
+          depositDate: values.depositDate,
+          note: cleanNote,
+        },
+      });
+      setWithdrawGoal(null);
+      showToast(t('savings.withdraw_toast'), 'success');
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.code === 'WITHDRAWAL_EXCEEDS_SAVED') {
+          setWithdrawFormError(
+            t('savings.exceeds_saved', { saved: formatAmount(withdrawGoal.currentAmount) }),
+          );
+          return;
+        }
+        const translated = t(`errors.${err.code}`);
+        setWithdrawFormError(translated !== `errors.${err.code}` ? translated : err.message);
+      } else {
+        setWithdrawFormError(t('errors.UNKNOWN'));
       }
     }
   };
@@ -464,7 +531,7 @@ export default function SavingsScreen() {
                     </View>
                   </View>
 
-                  {/* Deposit & History Buttons (BR-13, SAV-07) */}
+                  {/* History, Withdraw & Deposit Buttons (BR-13, SAV-07, SAV-08) */}
                   <View style={[styles.sheetButtons, { gap: theme.spacing.sm }]}>
                     <View style={{ flex: 1 }}>
                       <Button
@@ -473,6 +540,15 @@ export default function SavingsScreen() {
                         onPress={() => setDetailGoalId(item.id)}
                       />
                     </View>
+                    {item.currentAmount > 0 ? (
+                      <View style={{ flex: 1 }}>
+                        <Button
+                          variant="secondary"
+                          label={t('savings.withdraw')}
+                          onPress={() => openWithdrawModal(item)}
+                        />
+                      </View>
+                    ) : null}
                     <View style={{ flex: 1 }}>
                       <Button
                         variant={isCompleted ? 'secondary' : 'primary'}
@@ -725,6 +801,135 @@ export default function SavingsScreen() {
                   label={t('savings.deposit')}
                   loading={depositMutation.isPending}
                   onPress={depositForm.handleSubmit(onSubmitDeposit)}
+                />
+              </View>
+            </View>
+          </View>
+        ) : null}
+      </BottomSheet>
+
+      {/* Withdraw Bottom Sheet (SAV-08, BR-13) */}
+      <BottomSheet
+        visible={Boolean(withdrawGoal)}
+        onClose={() => setWithdrawGoal(null)}
+        title={t('savings.withdraw_title')}
+      >
+        {withdrawGoal ? (
+          <View style={{ gap: theme.spacing.md }}>
+            <View
+              style={[
+                styles.remainingBox,
+                {
+                  backgroundColor: theme.colors.surfaceAlt,
+                  borderRadius: theme.radius.control,
+                  padding: theme.spacing.md,
+                  gap: theme.spacing.xs,
+                },
+              ]}
+            >
+              <AppText variant="bodyStrong">{withdrawGoal.title}</AppText>
+              <View style={styles.summaryNumbersRow}>
+                <AppText variant="caption" muted>
+                  {t('savings.current_saved')}:
+                </AppText>
+                <AppText variant="bodyStrong" color={theme.colors.income}>
+                  {formatAmount(withdrawGoal.currentAmount)}
+                </AppText>
+              </View>
+              <AppText variant="caption" muted>
+                {t('savings.withdraw_notice')}
+              </AppText>
+            </View>
+
+            {withdrawFormError ? (
+              <View
+                style={[
+                  styles.errorBox,
+                  {
+                    backgroundColor: `${theme.colors.danger}18`,
+                    borderColor: theme.colors.danger,
+                    borderRadius: theme.radius.control,
+                    padding: theme.spacing.md,
+                    gap: theme.spacing.sm,
+                  },
+                ]}
+              >
+                <Feather name="alert-circle" size={18} color={theme.colors.danger} />
+                <AppText variant="caption" color={theme.colors.danger} style={{ flex: 1 }}>
+                  {withdrawFormError}
+                </AppText>
+              </View>
+            ) : null}
+
+            <Controller
+              control={withdrawForm.control}
+              name="amount"
+              render={({ field: { onChange, value } }) => (
+                <AmountField
+                  label={t('savings.withdraw_amount')}
+                  value={value}
+                  onChangeValue={onChange}
+                  rates={rates}
+                  error={
+                    withdrawForm.formState.errors.amount?.message
+                      ? t(withdrawForm.formState.errors.amount.message)
+                      : undefined
+                  }
+                />
+              )}
+            />
+
+            <Controller
+              control={withdrawForm.control}
+              name="depositDate"
+              render={({ field: { onChange, value } }) => (
+                <DatePickerField
+                  label={t('savings.withdraw_date')}
+                  value={value}
+                  onChange={onChange}
+                  maximumDate={getMaxWibDateForPicker()}
+                  error={
+                    withdrawForm.formState.errors.depositDate?.message
+                      ? t(withdrawForm.formState.errors.depositDate.message)
+                      : undefined
+                  }
+                />
+              )}
+            />
+
+            <Controller
+              control={withdrawForm.control}
+              name="note"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextField
+                  label={t('savings.deposit_note')}
+                  placeholder={t('savings.withdraw_note_placeholder')}
+                  value={value ?? ''}
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  error={
+                    withdrawForm.formState.errors.note?.message
+                      ? t(withdrawForm.formState.errors.note.message)
+                      : undefined
+                  }
+                />
+              )}
+            />
+
+            <View style={[styles.sheetButtons, { gap: theme.spacing.sm }]}>
+              <View style={{ flex: 1 }}>
+                <Button
+                  variant="secondary"
+                  label={t('common.cancel')}
+                  disabled={withdrawMutation.isPending}
+                  onPress={() => setWithdrawGoal(null)}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button
+                  label={t('savings.withdraw')}
+                  loading={withdrawMutation.isPending}
+                  onPress={withdrawForm.handleSubmit(onSubmitWithdraw)}
                 />
               </View>
             </View>

@@ -40,6 +40,7 @@ export class ApiError extends Error {
 }
 
 export const NETWORK_ERROR_CODE = 'NETWORK_ERROR';
+export const REQUEST_TIMEOUT_CODE = 'REQUEST_TIMEOUT';
 
 export type AuthUser = {
   id: string;
@@ -89,6 +90,16 @@ export type ChangePasswordInput = {
 
 export type ChangePasswordResponse = {
   token: string;
+};
+
+export type ForgotPasswordInput = {
+  email: string;
+};
+
+export type ResetPasswordInput = {
+  email: string;
+  otp: string;
+  newPassword: string;
 };
 
 export type CategoryType = 'income' | 'expense';
@@ -231,10 +242,9 @@ export type UpdateBudgetInput = {
   budgetAmount: number;
 };
 
-export type TopUpBudgetInput = {
-  amount: number;
-  source: 'manual';
-};
+export type TopUpBudgetInput =
+  | { amount: number; source: 'manual' }
+  | { amount: number; source: 'savings'; goalId: string };
 
 export type SavingsGoalStatus = 'in_progress' | 'almost_done' | 'completed';
 
@@ -290,6 +300,8 @@ export type CreateSavingsDepositInput = {
   depositDate: string;
   note?: string;
 };
+
+export type CreateSavingsWithdrawalInput = CreateSavingsDepositInput;
 
 export type SavingsDepositResponse = {
   entry: SavingsEntry;
@@ -462,6 +474,20 @@ export type ImportCommitResponse = {
   skipped: number;
   createdCategories: string[];
 };
+
+export type ReceiptScanConfidence = 'high' | 'medium' | 'low';
+
+export type ReceiptScanResponse = {
+  type: CategoryType;
+  amount: number | null;
+  transactionDate: string | null;
+  description: string | null;
+  suggestedCategoryId: string | null;
+  confidence: ReceiptScanConfidence;
+  warnings: string[];
+};
+
+export type ReceiptConsentResponse = { receiptScanConsent: boolean };
 
 // GET /health: the contract only lists the endpoint (public, server status); body is kept loose.
 export type HealthResponse = {

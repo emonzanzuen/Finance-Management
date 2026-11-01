@@ -1,7 +1,8 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { AppText } from '@/components/ui/AppText';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
@@ -13,10 +14,26 @@ import {
   type Language,
   type ThemePreference,
 } from '@/context/PreferencesContext';
+import { useAuth } from '@/context/AuthContext';
 import { useCurrencies } from '@/hooks/useCurrencies';
+import { useDeleteReceiptConsent, usePostReceiptConsent } from '@/hooks/useReceipts';
+import { useRegisterDevice, useUnregisterDevice } from '@/hooks/useDevices';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useTheme } from '@/theme/useTheme';
 import { CURRENCY_SYMBOLS } from '@/utils/format';
+import {
+  clearStoredPushToken,
+  configureNotifications,
+  getExpoPushToken,
+  getNotifications,
+  getStoredPushToken,
+  isExpoGo,
+  PUSH_ENABLED_KEY,
+  saveStoredPushToken,
+  sendLocalNotification,
+} from '@/utils/notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useState, useEffect } from 'react';
 
 const PRIMARY_CURRENCIES: CurrencyCode[] = ['IDR', 'USD', 'EUR'];
 
@@ -25,6 +42,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { profile, refreshProfile } = useAuth();
   const {
     theme: themePref,
     language,
@@ -35,7 +53,160 @@ export default function SettingsScreen() {
   } = usePreferences();
   const { rates, updatedAt, source, isFetching, refetch } = useCurrencies();
 
-  const themeOptions: { value: ThemePreference; label: string; icon: React.ComponentProps<typeof Feather>['name'] }[] = [
+  const postConsentMutation = usePostReceiptConsent();
+  const deleteConsentMutation = useDeleteReceiptConsent();
+  const registerDeviceMutation = useRegisterDevice();
+  const unregisterDeviceMutation = useUnregisterDevice();
+
+  const hasConsent = profile?.receiptScanConsent === true;
+  const isConsentPending = postConsentMutation.isPending || deleteConsentMutation.isPending;
+
+  // Push Notification state
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+
+  useEffect(() => {
+    const loadPushSetting = async () => {
+      const stored = await AsyncStorage.getItem(PUSH_ENABLED_KEY);
+      if (stored !== null) {
+        setPushEnabled(stored === 'true');
+      }
+    };
+    void loadPushSetting();
+  }, []);
+
+  const handleGrantConsent = async () => {
+    try {
+      await postConsentMutation.mutateAsync();
+      await refreshProfile();
+      showToast(t('transactions.scan.consent_granted_toast'), 'success');
+    } catch {
+      showToast(t('errors.UNKNOWN'), 'error');
+    }
+  };
+
+  const handleRevokeConsent = async () => {
+    Alert.alert(
+      t('transactions.scan.consent_title'),
+      t('transactions.scan.settings_revoke_confirm'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('transactions.scan.settings_revoke_consent'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteConsentMutation.mutateAsync();
+              await refreshProfile();
+              showToast(t('transactions.scan.consent_revoked_toast'), 'success');
+            } catch {
+              showToast(t('errors.UNKNOWN'), 'error');
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const requestPushPermission = async (): Promise<boolean> => {
+    if (Platform.OS === 'android') {
+      const Notifications = await getNotifications();
+      if (!Notifications) return false;
+      try {
+        const { status } = await Notifications.getPermissionsAsync();
+        if (status === 'granted') return true;
+        const { status: newStatus } = await Notifications.requestPermissionsAsync();
+        return newStatus === 'granted';
+      } catch {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handlePushToggle = async (enabled: boolean) => {
+    if (pushLoading) return;
+    const previous = pushEnabled;
+    setPushLoading(true);
+    try {
+      if (enabled) {
+        await configureNotifications();
+        const granted = await requestPushPermission();
+        if (!granted) {
+          showToast(t('settings.push_permission_denied'), 'error');
+          setPushEnabled(false);
+          return;
+        }
+
+        // Try remote push registration on APK builds if EAS projectId is configured
+        const token = await getExpoPushToken();
+        if (token) {
+          try {
+            await registerDeviceMutation.mutateAsync({
+              expoPushToken: token,
+              locale: language,
+            });
+            await saveStoredPushToken(token);
+          } catch {
+            // Best-effort remote device registration; local phone notifications still work
+          }
+        }
+
+        await AsyncStorage.setItem(PUSH_ENABLED_KEY, 'true');
+        setPushEnabled(true);
+        showToast(t('settings.push_enabled_toast'), 'success');
+
+        // Immediately send an OS-level heads-up notification so the user sees it pop up like WhatsApp
+        await sendLocalNotification({
+          title: t('settings.push_test_title'),
+          body: t('settings.push_test_body'),
+          data: { targetScreen: 'notifications', url: '/notifications' },
+        });
+      } else {
+        const token = await getStoredPushToken();
+        if (token) {
+          try {
+            await unregisterDeviceMutation.mutateAsync(token);
+          } catch {
+            // Best-effort unregister
+          }
+          await clearStoredPushToken();
+        }
+        await AsyncStorage.setItem(PUSH_ENABLED_KEY, 'false');
+        setPushEnabled(false);
+        showToast(t('settings.push_disabled_toast'), 'success');
+      }
+    } catch {
+      showToast(t('errors.UNKNOWN'), 'error');
+      setPushEnabled(previous);
+    } finally {
+      setPushLoading(false);
+    }
+  };
+
+  const handleTestNotification = async () => {
+    const granted = await requestPushPermission();
+    if (!granted) {
+      showToast(t('settings.push_permission_denied'), 'error');
+      return;
+    }
+    const ok = await sendLocalNotification({
+      title: t('settings.push_test_title'),
+      body: t('settings.push_test_body'),
+      data: { targetScreen: 'notifications', url: '/notifications' },
+    });
+    if (ok) {
+      showToast(t('settings.push_test_sent_toast'), 'info');
+    } else {
+      showToast(t('errors.UNKNOWN'), 'error');
+    }
+  };
+
+  const themeOptions: {
+    value: ThemePreference;
+    label: string;
+    icon: React.ComponentProps<typeof Feather>['name'];
+  }[] = [
     { value: 'system', label: t('settings.system'), icon: 'smartphone' },
     { value: 'light', label: t('settings.light'), icon: 'sun' },
     { value: 'dark', label: t('settings.dark'), icon: 'moon' },
@@ -215,7 +386,7 @@ export default function SettingsScreen() {
           })}
         </View>
 
-            {/* Additional Supported Currencies */}
+        {/* Additional Supported Currencies */}
         <View style={[styles.currencyGrid, { gap: theme.spacing.xs }]}>
           {CURRENCY_CODES.filter((c) => !PRIMARY_CURRENCIES.includes(c)).map((code) => {
             const active = currency === code;
@@ -309,18 +480,212 @@ export default function SettingsScreen() {
         />
       </Card>
 
-      {/* About Card (SET-05) */}
+      {/* Card 1 (Upgraded): Receipt Scan Consent (SCN-04, SCN-05) */}
       <Card>
-        <View style={styles.rateRow}>
-          <AppText variant="subtitle">{t('settings.about')}</AppText>
-          <AppText variant="caption" muted>
-            v1.0.0
+        <View style={[styles.featureCardHeader, { gap: theme.spacing.md }]}>
+          <View
+            style={[
+              styles.featureIconBadge,
+              {
+                backgroundColor: hasConsent
+                  ? `${theme.colors.income}18`
+                  : `${theme.colors.primary}15`,
+                borderRadius: theme.radius.control,
+              },
+            ]}
+          >
+            <Feather
+              name="camera"
+              size={20}
+              color={hasConsent ? theme.colors.income : theme.colors.primary}
+            />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <AppText variant="subtitle">{t('transactions.scan.consent_title')}</AppText>
+            <AppText variant="caption" muted>
+              {t('transactions.scan.settings_consent_status')}
+            </AppText>
+          </View>
+          <Badge
+            label={
+              hasConsent
+                ? t('transactions.scan.settings_consent_status_granted')
+                : t('transactions.scan.settings_consent_status_denied')
+            }
+            variant={hasConsent ? 'success' : 'warning'}
+          />
+        </View>
+
+        <View
+          style={[
+            styles.featureInfoBox,
+            {
+              backgroundColor: theme.colors.surfaceAlt,
+              borderRadius: theme.radius.control,
+              padding: theme.spacing.md,
+            },
+          ]}
+        >
+          <AppText variant="caption" muted style={{ lineHeight: 19 }}>
+            {t('transactions.scan.consent_description')}
           </AppText>
         </View>
-        <AppText variant="bodyStrong">FinManage Android</AppText>
-        <AppText variant="caption" muted>
-          {t('settings.about_description')}
-        </AppText>
+
+        {hasConsent ? (
+          <Button
+            variant="danger"
+            icon="slash"
+            label={t('transactions.scan.settings_revoke_consent')}
+            loading={isConsentPending}
+            disabled={isConsentPending}
+            onPress={() => void handleRevokeConsent()}
+          />
+        ) : (
+          <Button
+            variant="secondary"
+            icon="check-circle"
+            label={t('transactions.scan.settings_grant_consent')}
+            loading={isConsentPending}
+            disabled={isConsentPending}
+            onPress={() => void handleGrantConsent()}
+          />
+        )}
+      </Card>
+
+      {/* Card 2 (Upgraded): Push Notifications (NOT-04, NOT-05, NOT-06, SET-04) */}
+      <Card>
+        <Pressable
+          accessibilityRole="switch"
+          accessibilityState={{ checked: pushEnabled, busy: pushLoading }}
+          onPress={() => void handlePushToggle(!pushEnabled)}
+          disabled={pushLoading}
+          style={[styles.featureCardHeader, { gap: theme.spacing.md }]}
+        >
+          <View
+            style={[
+              styles.featureIconBadge,
+              {
+                backgroundColor: pushEnabled
+                  ? `${theme.colors.primary}18`
+                  : theme.colors.surfaceAlt,
+                borderRadius: theme.radius.control,
+              },
+            ]}
+          >
+            <Feather
+              name="bell"
+              size={20}
+              color={pushEnabled ? theme.colors.primary : theme.colors.textMuted}
+            />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs }}>
+              <AppText variant="subtitle">{t('settings.push_notifications')}</AppText>
+              <Badge
+                label={pushEnabled ? t('settings.push_status_active') : t('settings.push_status_inactive')}
+                variant={pushEnabled ? 'success' : 'neutral'}
+              />
+            </View>
+            <AppText variant="caption" muted style={{ lineHeight: 18 }}>
+              {t('settings.push_notifications_desc')}
+            </AppText>
+          </View>
+
+          <View
+            style={[
+              styles.switchTrack,
+              {
+                backgroundColor: pushEnabled ? theme.colors.primary : theme.colors.border,
+                borderColor: pushEnabled ? theme.colors.primary : theme.colors.border,
+                opacity: pushLoading ? 0.6 : 1,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.switchThumb,
+                {
+                  transform: [{ translateX: pushEnabled ? 22 : 0 }],
+                  backgroundColor: '#FFFFFF',
+                },
+              ]}
+            />
+          </View>
+        </Pressable>
+
+        {isExpoGo ? (
+          <View
+            style={[
+              styles.featureInfoBox,
+              {
+                backgroundColor: `${theme.colors.info}12`,
+                borderRadius: theme.radius.control,
+                padding: theme.spacing.sm,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: theme.spacing.sm,
+              },
+            ]}
+          >
+            <Feather name="info" size={16} color={theme.colors.info} />
+            <AppText variant="caption" color={theme.colors.info} style={{ flex: 1, lineHeight: 18 }}>
+              {t('settings.push_only_apk')}
+            </AppText>
+          </View>
+        ) : null}
+
+        {pushEnabled ? (
+          <Button
+            variant="secondary"
+            icon="bell"
+            label={t('settings.push_test_btn')}
+            onPress={() => void handleTestNotification()}
+          />
+        ) : null}
+      </Card>
+
+      {/* Card 3 (Upgraded): About FinManage (SET-05) */}
+      <Card>
+        <View style={[styles.featureCardHeader, { gap: theme.spacing.md }]}>
+          <View
+            style={[
+              styles.featureIconBadge,
+              {
+                backgroundColor: `${theme.colors.primary}15`,
+                borderRadius: theme.radius.control,
+              },
+            ]}
+          >
+            <Feather name="shield" size={20} color={theme.colors.primary} />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <AppText variant="subtitle">{t('settings.about')}</AppText>
+            <AppText variant="caption" muted>
+              FinManage Android
+            </AppText>
+          </View>
+          <Badge label="v1.0.0" variant="info" />
+        </View>
+
+        <View
+          style={[
+            styles.featureInfoBox,
+            {
+              backgroundColor: theme.colors.surfaceAlt,
+              borderRadius: theme.radius.control,
+              padding: theme.spacing.md,
+              gap: theme.spacing.sm,
+            },
+          ]}
+        >
+          <AppText variant="caption" muted style={{ lineHeight: 19 }}>
+            {t('settings.about_description')}
+          </AppText>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.xs }}>
+            <Badge label={t('settings.about_privacy_badge')} variant="success" />
+            <Badge label={t('settings.about_storage_badge')} variant="neutral" />
+          </View>
+        </View>
       </Card>
     </Screen>
   );
@@ -363,5 +728,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  featureCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  featureIconBadge: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureInfoBox: {
+    width: '100%',
+  },
+  switchTrack: {
+    width: 52,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 2,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  switchThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
   },
 });

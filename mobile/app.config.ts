@@ -2,6 +2,10 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 const isLocalDemo = process.env.EAS_BUILD_PROFILE === 'local-demo';
 
+// Diisi dari environment saat project EAS sudah dibuat (`eas init`).
+// Kosong berarti push token tidak dapat diminta; UI menampilkan pesan konfigurasi.
+const easProjectId = process.env.EAS_PROJECT_ID ?? '';
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'FinManage',
@@ -26,6 +30,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-secure-store',
     'expo-sharing',
     '@react-native-community/datetimepicker',
+    'expo-notifications',
     [
       'expo-splash-screen',
       {
@@ -50,5 +55,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   extra: {
     // Hanya true pada profil local-demo (layar ganti alamat server).
     allowServerOverride: isLocalDemo || process.env.EXPO_PUBLIC_ALLOW_SERVER_OVERRIDE === 'true',
+    eas: {
+      projectId: easProjectId,
+    },
   },
 });

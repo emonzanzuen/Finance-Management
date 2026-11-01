@@ -6,7 +6,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Feather } from '@expo/vector-icons';
 import { AmountField } from '@/components/ui/AmountField';
@@ -34,6 +34,7 @@ import {
 } from '@/hooks/useBudgets';
 import { useCategories } from '@/hooks/useCategories';
 import { useCurrencies } from '@/hooks/useCurrencies';
+import { useSavingsGoals } from '@/hooks/useSavings';
 import { useTranslation } from '@/i18n/useTranslation';
 import {
   budgetFormSchema,
@@ -61,6 +62,7 @@ export default function BudgetScreen() {
   const updateMutation = useUpdateBudget();
   const deleteMutation = useDeleteBudget();
   const topUpMutation = useTopUpBudget();
+  const savingsGoalsQuery = useSavingsGoals();
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<BudgetItem | null>(null);
@@ -71,12 +73,31 @@ export default function BudgetScreen() {
   const [topUpTarget, setTopUpTarget] = useState<BudgetItem | null>(null);
   const [topUpError, setTopUpError] = useState<string | null>(null);
 
+  // Only goals with saved balance can fund a budget top-up (BUD-10, BR-25)
+  const eligibleGoals = useMemo(
+    () => (savingsGoalsQuery.data?.items ?? []).filter((g) => g.currentAmount > 0),
+    [savingsGoalsQuery.data?.items],
+  );
+  const goalOptions = useMemo<SelectOption[]>(
+    () =>
+      eligibleGoals.map((g) => ({
+        value: g.id,
+        label: `${g.title} (${formatAmount(g.currentAmount)})`,
+      })),
+    [eligibleGoals, formatAmount],
+  );
+
   const topUpForm = useForm<TopUpBudgetFormValues>({
     resolver: zodResolver(topUpBudgetFormSchema),
     defaultValues: {
       amount: 0,
+      source: 'manual',
+      goalId: '',
     },
   });
+  const topUpSource = useWatch({ control: topUpForm.control, name: 'source' });
+  const topUpGoalId = useWatch({ control: topUpForm.control, name: 'goalId' });
+  const selectedGoal = eligibleGoals.find((g) => g.id === topUpGoalId);
 
   const {
     control,
@@ -150,24 +171,41 @@ export default function BudgetScreen() {
   const openTopUpModal = (item: BudgetItem) => {
     setTopUpTarget(item);
     setTopUpError(null);
-    topUpForm.reset({ amount: 0 });
+    topUpForm.reset({ amount: 0, source: 'manual', goalId: '' });
   };
 
   const onSubmitTopUp = async (values: TopUpBudgetFormValues) => {
     if (!topUpTarget) return;
     setTopUpError(null);
+
+    let goalToUse: (typeof eligibleGoals)[number] | undefined;
+    if (values.source === 'savings') {
+      goalToUse = eligibleGoals.find((g) => g.id === values.goalId);
+      if (!goalToUse) {
+        setTopUpError(t('budget.validation.goal_required'));
+        return;
+      }
+      if (values.amount > goalToUse.currentAmount) {
+        setTopUpError(t('budget.exceeds_saved', { saved: formatAmount(goalToUse.currentAmount) }));
+        return;
+      }
+    }
+
     try {
       await topUpMutation.mutateAsync({
         id: topUpTarget.id,
-        input: {
-          amount: values.amount,
-          source: 'manual',
-        },
+        input: goalToUse
+          ? { amount: values.amount, source: 'savings', goalId: goalToUse.id }
+          : { amount: values.amount, source: 'manual' },
       });
       setTopUpTarget(null);
       showToast(t('budget.top_up_toast'), 'success');
     } catch (err) {
       if (err instanceof ApiError) {
+        if (err.code === 'TOPUP_EXCEEDS_SAVED' && goalToUse) {
+          setTopUpError(t('budget.exceeds_saved', { saved: formatAmount(goalToUse.currentAmount) }));
+          return;
+        }
         const key = `errors.${err.code}`;
         const translated = t(key);
         setTopUpError(translated !== key ? translated : err.message);
@@ -612,6 +650,66 @@ export default function BudgetScreen() {
                 <AppText variant="caption" color={theme.colors.danger} style={{ flex: 1 }}>
                   {topUpError}
                 </AppText>
+              </View>
+            ) : null}
+
+            {/* Funding source (BUD-10, BR-25) */}
+            <View style={{ gap: theme.spacing.xs }}>
+              <AppText variant="bodyStrong">{t('budget.top_up_source')}</AppText>
+              <View style={[styles.sheetButtons, { gap: theme.spacing.sm }]}>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    variant={topUpSource === 'manual' ? 'primary' : 'secondary'}
+                    label={t('budget.source_manual')}
+                    onPress={() => topUpForm.setValue('source', 'manual')}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    variant={topUpSource === 'savings' ? 'primary' : 'secondary'}
+                    label={t('budget.source_savings')}
+                    disabled={eligibleGoals.length === 0}
+                    onPress={() => {
+                      topUpForm.setValue('source', 'savings');
+                      if (!topUpForm.getValues('goalId') && eligibleGoals[0]) {
+                        topUpForm.setValue('goalId', eligibleGoals[0].id);
+                      }
+                    }}
+                  />
+                </View>
+              </View>
+              {eligibleGoals.length === 0 ? (
+                <AppText variant="caption" muted>
+                  {t('budget.no_savings_with_balance')}
+                </AppText>
+              ) : null}
+            </View>
+
+            {topUpSource === 'savings' && eligibleGoals.length > 0 ? (
+              <View style={{ gap: theme.spacing.xs }}>
+                <Controller
+                  control={topUpForm.control}
+                  name="goalId"
+                  render={({ field: { onChange, value } }) => (
+                    <Select
+                      label={t('budget.savings_goal_label')}
+                      placeholder={t('budget.select_savings_goal')}
+                      value={value}
+                      options={goalOptions}
+                      onChange={onChange}
+                      error={
+                        topUpForm.formState.errors.goalId?.message
+                          ? t(topUpForm.formState.errors.goalId.message)
+                          : undefined
+                      }
+                    />
+                  )}
+                />
+                {selectedGoal ? (
+                  <AppText variant="caption" muted>
+                    {t('budget.available_balance', { amount: formatAmount(selectedGoal.currentAmount) })}
+                  </AppText>
+                ) : null}
               </View>
             ) : null}
 

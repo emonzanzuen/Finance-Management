@@ -1,22 +1,27 @@
 import { ActivityIndicator, Pressable, StyleSheet, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
+import { Feather } from '@expo/vector-icons';
+
+type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
 type Props = {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'danger';
+  variant?: 'primary' | 'secondary' | 'danger' | 'outline';
+  icon?: FeatherIconName;
   loading?: boolean;
   disabled?: boolean;
   style?: ViewStyle;
 };
 
-export function Button({ label, onPress, variant = 'primary', loading = false, disabled = false, style }: Props) {
+export function Button({ label, onPress, variant = 'primary', icon, loading = false, disabled = false, style }: Props) {
   const theme = useTheme();
   const palette = {
     primary: { bg: theme.colors.primary, fg: theme.colors.onPrimary, border: theme.colors.primary },
     secondary: { bg: theme.colors.surface, fg: theme.colors.text, border: theme.colors.border },
     danger: { bg: theme.colors.surface, fg: theme.colors.danger, border: theme.colors.danger },
+    outline: { bg: 'transparent', fg: theme.colors.primary, border: theme.colors.primary },
   }[variant];
   const inactive = disabled || loading;
 
@@ -42,14 +47,18 @@ export function Button({ label, onPress, variant = 'primary', loading = false, d
       {loading ? (
         <ActivityIndicator color={palette.fg} />
       ) : (
-        <AppText variant="bodyStrong" color={palette.fg}>
-          {label}
-        </AppText>
+        <>
+          {icon && <Feather name={icon} size={18} color={palette.fg} style={styles.icon} />}
+          <AppText variant="bodyStrong" color={palette.fg}>
+            {label}
+          </AppText>
+        </>
       )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  base: { alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  base: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, flexDirection: 'row', gap: 8 },
+  icon: { marginRight: 4 },
 });
