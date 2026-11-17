@@ -90,6 +90,9 @@ export default function CategoriesScreen() {
   const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
   const [inUseAlertMessage, setInUseAlertMessage] = useState<string | null>(null);
 
+  const softBorderColor = theme.isDark ? theme.colors.border : `${theme.colors.border}B8`;
+  const surfaceSubtle = theme.isDark ? theme.colors.surfaceAlt : `${theme.colors.surfaceAlt}90`;
+
   const categoriesQuery = useCategories();
   const createMutation = useCreateCategory();
   const updateMutation = useUpdateCategory();
@@ -207,42 +210,67 @@ export default function CategoriesScreen() {
 
   return (
     <Screen style={{ flex: 1 }}>
-      {/* Header */}
-      <View style={[styles.headerRow, { gap: theme.spacing.sm }]}>
+      {/* Header — Soft Depth Back Button & + Add Button */}
+      <View
+        style={[
+          styles.headerRow,
+          {
+            paddingTop: theme.spacing.xs,
+            gap: theme.spacing.md,
+          },
+        ]}
+      >
         <Pressable
           accessibilityRole="button"
           onPress={() => router.back()}
-          style={[
+          style={({ pressed }) => [
             styles.iconBtn,
             {
-              minWidth: theme.sizes.touchTarget,
-              minHeight: theme.sizes.touchTarget,
-              borderRadius: theme.radius.control,
+              width: 42,
+              height: 42,
+              borderRadius: 12,
               backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
+              borderColor: softBorderColor,
+              opacity: pressed ? 0.8 : 1,
             },
           ]}
         >
           <Feather name="arrow-left" size={20} color={theme.colors.text} />
         </Pressable>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, gap: 2 }}>
           <AppText variant="title">{t('categories.title')}</AppText>
-          <AppText variant="caption" muted>
+          <AppText variant="caption" muted numberOfLines={1}>
             {t('categories.subtitle')}
           </AppText>
         </View>
-        <Button label={t('common.add')} onPress={openCreateModal} />
+        <Pressable
+          accessibilityRole="button"
+          onPress={openCreateModal}
+          style={({ pressed }) => [
+            styles.addBtn,
+            {
+              width: 44,
+              height: 44,
+              borderRadius: theme.radius.control,
+              backgroundColor: theme.colors.primary,
+              opacity: pressed ? 0.85 : 1,
+            },
+          ]}
+        >
+          <Feather name="plus" size={20} color={theme.colors.onPrimary} />
+        </Pressable>
       </View>
 
-      {/* Expense / Income Segmented Filter */}
+      {/* Expense / Income Floating Island Segmented Dock */}
       <View
         style={[
           styles.segmented,
           {
-            backgroundColor: theme.colors.surfaceAlt,
-            borderRadius: theme.radius.control,
-            padding: theme.spacing.xs,
-            gap: theme.spacing.xs,
+            backgroundColor: surfaceSubtle,
+            borderColor: softBorderColor,
+            borderRadius: 16,
+            padding: 5,
+            gap: 6,
           },
         ]}
       >
@@ -254,19 +282,38 @@ export default function CategoriesScreen() {
               key={tab}
               accessibilityRole="button"
               onPress={() => setActiveTab(tab)}
-              style={[
+              style={({ pressed }) => [
                 styles.segmentItem,
                 {
                   minHeight: 42,
-                  borderRadius: theme.radius.control,
-                  backgroundColor: active ? theme.colors.surface : 'transparent',
+                  borderRadius: 12,
+                  borderWidth: active ? 1.5 : 1,
                   borderColor: active ? activeColor : 'transparent',
+                  backgroundColor: active
+                    ? theme.colors.surface
+                    : pressed
+                      ? `${theme.colors.surface}80`
+                      : 'transparent',
+                  gap: 6,
+                  shadowColor: '#0F172A',
+                  shadowOpacity: active && !theme.isDark ? 0.05 : 0,
+                  shadowRadius: 6,
+                  shadowOffset: { width: 0, height: 2 },
+                  elevation: active && !theme.isDark ? 1 : 0,
                 },
               ]}
             >
+              <Feather
+                name={tab === 'expense' ? 'arrow-up-right' : 'arrow-down-left'}
+                size={15}
+                color={active ? activeColor : theme.colors.textMuted}
+              />
               <AppText
                 variant={active ? 'bodyStrong' : 'body'}
                 color={active ? activeColor : theme.colors.textMuted}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
               >
                 {tab === 'expense'
                   ? t('categories.expense_categories')
@@ -289,7 +336,11 @@ export default function CategoriesScreen() {
         <FlatList
           data={filteredCategories}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ gap: theme.spacing.sm, paddingBottom: theme.spacing.xxl }}
+          contentContainerStyle={{
+            gap: theme.spacing.sm + 2,
+            paddingTop: theme.spacing.xs,
+            paddingBottom: theme.spacing.xxl,
+          }}
           refreshControl={
             <RefreshControl
               refreshing={categoriesQuery.isRefetching}
@@ -310,48 +361,67 @@ export default function CategoriesScreen() {
             />
           }
           renderItem={({ item }) => (
-            <Card style={{ paddingVertical: theme.spacing.md }}>
+            <Card
+              style={{
+                paddingVertical: theme.spacing.md,
+                paddingHorizontal: theme.spacing.md + 2,
+                borderRadius: theme.radius.card,
+                borderColor: softBorderColor,
+                borderLeftWidth: 4,
+                borderLeftColor: item.color,
+              }}
+            >
               <View style={[styles.itemRow, { gap: theme.spacing.md }]}>
                 <View
                   style={[
-                    styles.colorSwatch,
-                    { backgroundColor: item.color, borderRadius: theme.radius.full },
+                    styles.colorIconBox,
+                    {
+                      backgroundColor: `${item.color}18`,
+                      borderRadius: 12,
+                    },
                   ]}
-                />
+                >
+                  <View
+                    style={[
+                      styles.colorSwatch,
+                      { backgroundColor: item.color, borderRadius: theme.radius.full },
+                    ]}
+                  />
+                </View>
                 <View style={{ flex: 1 }}>
                   <AppText variant="bodyStrong">{item.name}</AppText>
                 </View>
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => openEditModal(item)}
-                  style={[
-                    styles.iconBtn,
+                  style={({ pressed }) => [
+                    styles.softIconBtn,
                     {
-                      minWidth: theme.sizes.touchTarget,
-                      minHeight: theme.sizes.touchTarget,
-                      borderRadius: theme.radius.control,
-                      backgroundColor: theme.colors.surfaceAlt,
-                      borderColor: theme.colors.border,
+                      width: 34,
+                      height: 34,
+                      borderRadius: 10,
+                      backgroundColor: pressed ? theme.colors.border : surfaceSubtle,
                     },
                   ]}
                 >
-                  <Feather name="edit-2" size={18} color={theme.colors.text} />
+                  <Feather name="edit-2" size={15} color={theme.colors.textMuted} />
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => setDeletingCategory(item)}
-                  style={[
-                    styles.iconBtn,
+                  style={({ pressed }) => [
+                    styles.softIconBtn,
                     {
-                      minWidth: theme.sizes.touchTarget,
-                      minHeight: theme.sizes.touchTarget,
-                      borderRadius: theme.radius.control,
-                      backgroundColor: theme.colors.surfaceAlt,
-                      borderColor: theme.colors.border,
+                      width: 34,
+                      height: 34,
+                      borderRadius: 10,
+                      backgroundColor: pressed
+                        ? `${theme.colors.danger}24`
+                        : `${theme.colors.danger}12`,
                     },
                   ]}
                 >
-                  <Feather name="trash-2" size={18} color={theme.colors.danger} />
+                  <Feather name="trash-2" size={15} color={theme.colors.danger} />
                 </Pressable>
               </View>
             </Card>
@@ -406,7 +476,7 @@ export default function CategoriesScreen() {
                       minHeight: theme.sizes.touchTarget,
                       borderRadius: theme.radius.control,
                       borderColor: selected ? accent : theme.colors.border,
-                      backgroundColor: selected ? theme.colors.surfaceAlt : theme.colors.surface,
+                      backgroundColor: selected ? `${accent}14` : theme.colors.surface,
                       opacity: isTypeLocked && !selected ? 0.45 : 1,
                     },
                   ]}
@@ -531,22 +601,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
   },
+  addBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   segmented: {
     flexDirection: 'row',
+    borderWidth: 1,
   },
   segmentItem: {
     flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
   },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  colorIconBox: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   colorSwatch: {
-    width: 20,
-    height: 20,
+    width: 16,
+    height: 16,
+  },
+  softIconBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   errorBanner: {
     flexDirection: 'row',

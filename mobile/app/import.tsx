@@ -56,6 +56,9 @@ export default function ImportScreen() {
   const [skipDuplicates, setSkipDuplicates] = useState<boolean>(true);
   const [commitResult, setCommitResult] = useState<ImportCommitResponse | null>(null);
 
+  const softBorderColor = theme.isDark ? theme.colors.border : `${theme.colors.border}B8`;
+  const surfaceSubtle = theme.isDark ? theme.colors.surfaceAlt : `${theme.colors.surfaceAlt}90`;
+
   const handleDownloadTemplate = async () => {
     try {
       await downloadTemplateMutation.mutateAsync();
@@ -176,48 +179,88 @@ export default function ImportScreen() {
 
   const spec = specQuery.data;
 
+  const columnSpecs = [
+    { name: t('import.col_tanggal_name'), desc: t('import.col_tanggal_desc'), color: theme.colors.primary },
+    { name: t('import.col_tipe_name'), desc: t('import.col_tipe_desc'), color: theme.colors.info },
+    { name: t('import.col_kategori_name'), desc: t('import.col_kategori_desc'), color: theme.colors.income },
+    { name: t('import.col_deskripsi_name'), desc: t('import.col_deskripsi_desc'), color: theme.colors.warning },
+    { name: t('import.col_nominal_name'), desc: t('import.col_nominal_desc'), color: theme.colors.expense },
+    {
+      name: t('import.col_ignored_name'),
+      desc: `${t('import.col_ignored_desc')} (${(spec?.ignoredColumns ?? ['No', 'Hari']).join(', ')})`,
+      color: theme.colors.textMuted,
+    },
+  ];
+
   return (
     <Screen padded={false}>
       <ScrollView
         contentContainerStyle={{
-          padding: theme.spacing.lg,
+          paddingHorizontal: theme.spacing.lg,
+          paddingTop: theme.spacing.md,
           paddingBottom: theme.spacing.xxl * 2,
           gap: theme.spacing.md,
         }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={[styles.headerRow, { gap: theme.spacing.sm }]}>
+        {/* Header — Soft Depth Back Button */}
+        <View style={[styles.headerRow, { gap: theme.spacing.md }]}>
           <Pressable
             accessibilityRole="button"
             onPress={() => router.back()}
-            style={[
+            style={({ pressed }) => [
               styles.backBtn,
               {
-                minWidth: theme.sizes.touchTarget,
-                minHeight: theme.sizes.touchTarget,
-                borderRadius: theme.radius.control,
+                width: 42,
+                height: 42,
+                borderRadius: 12,
+                backgroundColor: theme.colors.surface,
+                borderColor: softBorderColor,
+                opacity: pressed ? 0.8 : 1,
               },
             ]}
           >
-            <Feather name="arrow-left" size={22} color={theme.colors.text} />
+            <Feather name="arrow-left" size={20} color={theme.colors.text} />
           </Pressable>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, gap: 2 }}>
             <AppText variant="title">{t('import.title')}</AppText>
-            <AppText variant="caption" muted>
+            <AppText variant="caption" muted numberOfLines={1}>
               {t('import.subtitle')}
             </AppText>
           </View>
         </View>
 
         {/* 1. Aturan Teknis Berkas (File Spec) */}
-        <Card>
-          <View style={[styles.cardTitleRow, { gap: theme.spacing.xs }]}>
-            <Feather name="file-text" size={18} color={theme.colors.primary} />
+        <Card
+          style={{
+            padding: theme.spacing.lg,
+            gap: theme.spacing.md,
+            borderRadius: theme.radius.card + 2,
+            borderColor: softBorderColor,
+          }}
+        >
+          <View style={[styles.cardTitleRow, { gap: theme.spacing.sm }]}>
+            <View
+              style={[
+                styles.iconBadge,
+                { backgroundColor: `${theme.colors.primary}14`, borderRadius: 10 },
+              ]}
+            >
+              <Feather name="file-text" size={16} color={theme.colors.primary} />
+            </View>
             <AppText variant="subtitle">{t('import.file_spec_title')}</AppText>
           </View>
 
-          <View style={{ gap: theme.spacing.xs }}>
+          <View
+            style={{
+              backgroundColor: surfaceSubtle,
+              borderColor: softBorderColor,
+              borderWidth: 1,
+              borderRadius: 12,
+              padding: theme.spacing.md,
+              gap: 6,
+            }}
+          >
             <AppText variant="caption">• {t('import.file_spec_format')}</AppText>
             <AppText variant="caption">• {t('import.file_spec_limits')}</AppText>
             <AppText variant="caption" color={theme.colors.danger}>
@@ -233,9 +276,23 @@ export default function ImportScreen() {
         </Card>
 
         {/* 2. Aturan Kolom & Format Data */}
-        <Card>
-          <View style={[styles.cardTitleRow, { gap: theme.spacing.xs }]}>
-            <Feather name="grid" size={18} color={theme.colors.primary} />
+        <Card
+          style={{
+            padding: theme.spacing.lg,
+            gap: theme.spacing.md,
+            borderRadius: theme.radius.card + 2,
+            borderColor: softBorderColor,
+          }}
+        >
+          <View style={[styles.cardTitleRow, { gap: theme.spacing.sm }]}>
+            <View
+              style={[
+                styles.iconBadge,
+                { backgroundColor: `${theme.colors.info}14`, borderRadius: 10 },
+              ]}
+            >
+              <Feather name="grid" size={16} color={theme.colors.info} />
+            </View>
             <AppText variant="subtitle">{t('import.columns_spec_title')}</AppText>
           </View>
 
@@ -244,108 +301,28 @@ export default function ImportScreen() {
           </AppText>
 
           <View style={{ gap: theme.spacing.sm }}>
-            <View
-              style={[
-                styles.specBox,
-                {
-                  backgroundColor: theme.colors.surfaceAlt,
-                  borderRadius: theme.radius.control,
-                  padding: theme.spacing.sm,
-                  gap: 2,
-                },
-              ]}
-            >
-              <AppText variant="bodyStrong">{t('import.col_tanggal_name')}</AppText>
-              <AppText variant="caption" muted>
-                {t('import.col_tanggal_desc')}
-              </AppText>
-            </View>
-
-            <View
-              style={[
-                styles.specBox,
-                {
-                  backgroundColor: theme.colors.surfaceAlt,
-                  borderRadius: theme.radius.control,
-                  padding: theme.spacing.sm,
-                  gap: 2,
-                },
-              ]}
-            >
-              <AppText variant="bodyStrong">{t('import.col_tipe_name')}</AppText>
-              <AppText variant="caption" muted>
-                {t('import.col_tipe_desc')}
-              </AppText>
-            </View>
-
-            <View
-              style={[
-                styles.specBox,
-                {
-                  backgroundColor: theme.colors.surfaceAlt,
-                  borderRadius: theme.radius.control,
-                  padding: theme.spacing.sm,
-                  gap: 2,
-                },
-              ]}
-            >
-              <AppText variant="bodyStrong">{t('import.col_kategori_name')}</AppText>
-              <AppText variant="caption" muted>
-                {t('import.col_kategori_desc')}
-              </AppText>
-            </View>
-
-            <View
-              style={[
-                styles.specBox,
-                {
-                  backgroundColor: theme.colors.surfaceAlt,
-                  borderRadius: theme.radius.control,
-                  padding: theme.spacing.sm,
-                  gap: 2,
-                },
-              ]}
-            >
-              <AppText variant="bodyStrong">{t('import.col_deskripsi_name')}</AppText>
-              <AppText variant="caption" muted>
-                {t('import.col_deskripsi_desc')}
-              </AppText>
-            </View>
-
-            <View
-              style={[
-                styles.specBox,
-                {
-                  backgroundColor: theme.colors.surfaceAlt,
-                  borderRadius: theme.radius.control,
-                  padding: theme.spacing.sm,
-                  gap: 2,
-                },
-              ]}
-            >
-              <AppText variant="bodyStrong">{t('import.col_nominal_name')}</AppText>
-              <AppText variant="caption" muted>
-                {t('import.col_nominal_desc')}
-              </AppText>
-            </View>
-
-            <View
-              style={[
-                styles.specBox,
-                {
-                  backgroundColor: theme.colors.surfaceAlt,
-                  borderRadius: theme.radius.control,
-                  padding: theme.spacing.sm,
-                  gap: 2,
-                },
-              ]}
-            >
-              <AppText variant="bodyStrong">{t('import.col_ignored_name')}</AppText>
-              <AppText variant="caption" muted>
-                {t('import.col_ignored_desc')} (
-                {(spec?.ignoredColumns ?? ['No', 'Hari']).join(', ')})
-              </AppText>
-            </View>
+            {columnSpecs.map((col, idx) => (
+              <View
+                key={idx}
+                style={[
+                  styles.specBox,
+                  {
+                    backgroundColor: surfaceSubtle,
+                    borderColor: softBorderColor,
+                    borderLeftWidth: 3.5,
+                    borderLeftColor: col.color,
+                    borderRadius: 10,
+                    padding: theme.spacing.sm + 2,
+                    gap: 2,
+                  },
+                ]}
+              >
+                <AppText variant="bodyStrong">{col.name}</AppText>
+                <AppText variant="caption" muted>
+                  {col.desc}
+                </AppText>
+              </View>
+            ))}
           </View>
 
           {/* Column Adjustment Guide Box */}
@@ -353,9 +330,9 @@ export default function ImportScreen() {
             style={[
               styles.guideBox,
               {
-                backgroundColor: `${theme.colors.info}14`,
-                borderColor: `${theme.colors.info}40`,
-                borderRadius: theme.radius.control,
+                backgroundColor: `${theme.colors.info}12`,
+                borderColor: `${theme.colors.info}35`,
+                borderRadius: 12,
                 padding: theme.spacing.md,
                 gap: theme.spacing.xs,
               },
@@ -371,22 +348,20 @@ export default function ImportScreen() {
           </View>
 
           {/* Actions: Download Template & Select File */}
-          <View style={[styles.actionsRow, { gap: theme.spacing.sm }]}>
-            <View style={{ flex: 1 }}>
-              <Button
-                variant="secondary"
-                label={t('import.download_template')}
-                loading={downloadTemplateMutation.isPending}
-                onPress={() => void handleDownloadTemplate()}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Button
-                label={t('import.select_file')}
-                loading={previewMutation.isPending}
-                onPress={() => void handlePickFile()}
-              />
-            </View>
+          <View style={{ gap: theme.spacing.sm }}>
+            <Button
+              variant="secondary"
+              icon="download"
+              label={t('import.download_template')}
+              loading={downloadTemplateMutation.isPending}
+              onPress={() => void handleDownloadTemplate()}
+            />
+            <Button
+              icon="upload"
+              label={t('import.select_file')}
+              loading={previewMutation.isPending}
+              onPress={() => void handlePickFile()}
+            />
           </View>
 
           {selectedFileName ? (
@@ -398,7 +373,13 @@ export default function ImportScreen() {
 
         {/* 3. Penanganan Masalah & Peringatan Berlapis (Tahap A) */}
         {activeError ? (
-          <Card style={{ borderColor: theme.colors.danger }}>
+          <Card
+            style={{
+              borderColor: theme.colors.danger,
+              borderLeftWidth: 4,
+              borderLeftColor: theme.colors.danger,
+            }}
+          >
             <View style={[styles.cardTitleRow, { gap: theme.spacing.xs }]}>
               <Feather name="alert-circle" size={18} color={theme.colors.danger} />
               <AppText variant="bodyStrong" color={theme.colors.danger}>
@@ -424,7 +405,8 @@ export default function ImportScreen() {
                   styles.specBox,
                   {
                     backgroundColor: `${theme.colors.danger}10`,
-                    borderRadius: theme.radius.control,
+                    borderColor: `${theme.colors.danger}30`,
+                    borderRadius: 10,
                     padding: theme.spacing.sm,
                     gap: theme.spacing.xs,
                   },
@@ -464,7 +446,13 @@ export default function ImportScreen() {
 
         {/* 3. Penanganan Masalah Header (Tahap B: IMPORT_HEADER_MISMATCH) */}
         {headerMismatch ? (
-          <Card style={{ borderColor: theme.colors.danger }}>
+          <Card
+            style={{
+              borderColor: theme.colors.danger,
+              borderLeftWidth: 4,
+              borderLeftColor: theme.colors.danger,
+            }}
+          >
             <View style={[styles.cardTitleRow, { gap: theme.spacing.xs }]}>
               <Feather name="alert-octagon" size={20} color={theme.colors.danger} />
               <AppText variant="subtitle" color={theme.colors.danger}>
@@ -480,7 +468,7 @@ export default function ImportScreen() {
                   styles.mismatchSubBox,
                   {
                     backgroundColor: `${theme.colors.danger}15`,
-                    borderRadius: theme.radius.control,
+                    borderRadius: 10,
                     padding: theme.spacing.md,
                     gap: theme.spacing.xs,
                   },
@@ -501,7 +489,7 @@ export default function ImportScreen() {
                   styles.mismatchSubBox,
                   {
                     backgroundColor: `${theme.colors.warning}18`,
-                    borderRadius: theme.radius.control,
+                    borderRadius: 10,
                     padding: theme.spacing.md,
                     gap: theme.spacing.xs,
                   },
@@ -526,7 +514,14 @@ export default function ImportScreen() {
         {/* 3. Pratinjau & Validasi Baris (Tahap C) */}
         {previewData ? (
           <>
-            <Card>
+            <Card
+              style={{
+                padding: theme.spacing.lg,
+                gap: theme.spacing.md,
+                borderRadius: theme.radius.card + 2,
+                borderColor: softBorderColor,
+              }}
+            >
               <AppText variant="subtitle">{t('import.preview_summary_title')}</AppText>
 
               <View style={[styles.summaryGrid, { gap: theme.spacing.sm }]}>
@@ -534,9 +529,9 @@ export default function ImportScreen() {
                   style={[
                     styles.summaryCell,
                     {
-                      backgroundColor: theme.colors.surfaceAlt,
-                      borderRadius: theme.radius.control,
-                      padding: theme.spacing.sm,
+                      backgroundColor: surfaceSubtle,
+                      borderRadius: 12,
+                      padding: theme.spacing.sm + 2,
                     },
                   ]}
                 >
@@ -550,9 +545,9 @@ export default function ImportScreen() {
                   style={[
                     styles.summaryCell,
                     {
-                      backgroundColor: `${theme.colors.income}18`,
-                      borderRadius: theme.radius.control,
-                      padding: theme.spacing.sm,
+                      backgroundColor: `${theme.colors.income}16`,
+                      borderRadius: 12,
+                      padding: theme.spacing.sm + 2,
                     },
                   ]}
                 >
@@ -568,9 +563,9 @@ export default function ImportScreen() {
                   style={[
                     styles.summaryCell,
                     {
-                      backgroundColor: `${theme.colors.danger}18`,
-                      borderRadius: theme.radius.control,
-                      padding: theme.spacing.sm,
+                      backgroundColor: `${theme.colors.danger}16`,
+                      borderRadius: 12,
+                      padding: theme.spacing.sm + 2,
                     },
                   ]}
                 >
@@ -586,9 +581,9 @@ export default function ImportScreen() {
                   style={[
                     styles.summaryCell,
                     {
-                      backgroundColor: `${theme.colors.warning}18`,
-                      borderRadius: theme.radius.control,
-                      padding: theme.spacing.sm,
+                      backgroundColor: `${theme.colors.warning}16`,
+                      borderRadius: 12,
+                      padding: theme.spacing.sm + 2,
                     },
                   ]}
                 >
@@ -609,8 +604,9 @@ export default function ImportScreen() {
                   style={[
                     styles.radioRow,
                     {
-                      borderColor: theme.colors.border,
-                      borderRadius: theme.radius.control,
+                      borderColor: softBorderColor,
+                      backgroundColor: surfaceSubtle,
+                      borderRadius: 12,
                       padding: theme.spacing.md,
                       gap: theme.spacing.sm,
                     },
@@ -653,11 +649,11 @@ export default function ImportScreen() {
                         style={[
                           styles.radioRow,
                           {
-                            borderColor: active ? theme.colors.primary : theme.colors.border,
+                            borderColor: active ? theme.colors.primary : softBorderColor,
                             backgroundColor: active
                               ? `${theme.colors.primary}12`
-                              : theme.colors.surface,
-                            borderRadius: theme.radius.control,
+                              : surfaceSubtle,
+                            borderRadius: 12,
                             padding: theme.spacing.md,
                             gap: theme.spacing.sm,
                           },
@@ -690,7 +686,14 @@ export default function ImportScreen() {
             </Card>
 
             {/* Row-by-Row Preview List */}
-            <Card>
+            <Card
+              style={{
+                padding: theme.spacing.lg,
+                gap: theme.spacing.md,
+                borderRadius: theme.radius.card + 2,
+                borderColor: softBorderColor,
+              }}
+            >
               <AppText variant="subtitle">{t('import.rows_preview_title')}</AppText>
               <View style={{ gap: theme.spacing.xs }}>
                 {previewData.rows.slice(0, 60).map((r) => {
@@ -706,12 +709,12 @@ export default function ImportScreen() {
                             ? theme.colors.danger
                             : isDuplicate
                               ? theme.colors.warning
-                              : theme.colors.border,
+                              : softBorderColor,
                           backgroundColor: isInvalid
                             ? `${theme.colors.danger}0D`
-                            : theme.colors.surfaceAlt,
-                          borderRadius: theme.radius.control,
-                          padding: theme.spacing.sm,
+                            : surfaceSubtle,
+                          borderRadius: 10,
+                          padding: theme.spacing.sm + 2,
                           gap: 4,
                         },
                       ]}
@@ -776,7 +779,13 @@ export default function ImportScreen() {
 
         {/* 4. Commit Result Summary Card */}
         {commitResult ? (
-          <Card style={{ borderColor: theme.colors.income }}>
+          <Card
+            style={{
+              borderColor: theme.colors.income,
+              borderLeftWidth: 4,
+              borderLeftColor: theme.colors.income,
+            }}
+          >
             <View style={[styles.cardTitleRow, { gap: theme.spacing.xs }]}>
               <Feather name="check-circle" size={20} color={theme.colors.income} />
               <AppText variant="subtitle" color={theme.colors.income}>
@@ -815,12 +824,26 @@ export default function ImportScreen() {
         ) : null}
 
         {/* 4. Notifikasi & Efek Pasca-Import Notice */}
-        <Card>
-          <View style={[styles.cardTitleRow, { gap: theme.spacing.xs }]}>
-            <Feather name="bell" size={18} color={theme.colors.primary} />
+        <Card
+          style={{
+            padding: theme.spacing.lg,
+            gap: theme.spacing.sm,
+            borderRadius: theme.radius.card + 2,
+            borderColor: softBorderColor,
+          }}
+        >
+          <View style={[styles.cardTitleRow, { gap: theme.spacing.sm }]}>
+            <View
+              style={[
+                styles.iconBadge,
+                { backgroundColor: `${theme.colors.primary}14`, borderRadius: 10 },
+              ]}
+            >
+              <Feather name="bell" size={16} color={theme.colors.primary} />
+            </View>
             <AppText variant="subtitle">{t('import.notification_notice_title')}</AppText>
           </View>
-          <AppText variant="caption" muted>
+          <AppText variant="caption" muted style={{ lineHeight: 19 }}>
             {t('import.notification_notice_desc')}
           </AppText>
         </Card>
@@ -837,13 +860,21 @@ const styles = StyleSheet.create({
   backBtn: {
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
   cardTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  iconBadge: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   specBox: {
     width: '100%',
+    borderWidth: 1,
   },
   guideBox: {
     width: '100%',

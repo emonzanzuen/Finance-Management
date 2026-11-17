@@ -57,10 +57,41 @@ export default function LoginScreen() {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <Screen scroll style={{ paddingTop: theme.spacing.xxl }}>
-        <View style={{ gap: theme.spacing.xs }}>
-          <AppText variant="title">{t('auth.welcome_back')}</AppText>
-          <AppText muted>{t('auth.login_subtitle')}</AppText>
+      <Screen
+        scroll
+        style={{
+          flexGrow: 1,
+          justifyContent: 'center',
+          paddingTop: theme.spacing.xl,
+          paddingBottom: theme.spacing.xl,
+          paddingHorizontal: theme.spacing.xl,
+          gap: theme.spacing.xl,
+        }}
+      >
+        <View style={[styles.header, { gap: theme.spacing.lg }]}>
+          <View
+            style={[
+              styles.iconHalo,
+              { backgroundColor: `${theme.colors.primary}15`, borderRadius: theme.radius.full },
+            ]}
+          >
+            <View
+              style={[
+                styles.iconCore,
+                { backgroundColor: theme.colors.primary, borderRadius: theme.radius.full },
+              ]}
+            >
+              <Feather name="trending-up" size={28} color={theme.colors.onPrimary} />
+            </View>
+          </View>
+          <View style={[styles.headerText, { gap: theme.spacing.xs }]}>
+            <AppText variant="title" style={styles.centerText}>
+              {t('auth.welcome_back')}
+            </AppText>
+            <AppText muted style={styles.centerText}>
+              {t('auth.login_subtitle')}
+            </AppText>
+          </View>
         </View>
 
         {serverError ? (
@@ -68,22 +99,32 @@ export default function LoginScreen() {
             style={[
               styles.errorBanner,
               {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.danger,
+                backgroundColor: `${theme.colors.danger}15`,
+                borderColor: `${theme.colors.danger}40`,
                 borderRadius: theme.radius.control,
                 padding: theme.spacing.md,
                 gap: theme.spacing.sm,
               },
             ]}
           >
-            <Feather name="alert-circle" size={18} color={theme.colors.danger} />
+            <Feather name="alert-circle" size={20} color={theme.colors.danger} />
             <AppText color={theme.colors.danger} style={styles.flex}>
               {serverError}
             </AppText>
           </View>
         ) : null}
 
-        <Card style={{ gap: theme.spacing.md }}>
+        <Card
+          style={{
+            gap: theme.spacing.lg,
+            padding: theme.spacing.xl,
+            shadowColor: theme.colors.text,
+            shadowOpacity: theme.isDark ? 0 : 0.06,
+            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 6 },
+            elevation: theme.isDark ? 0 : 3,
+          }}
+        >
           <Controller
             control={control}
             name="email"
@@ -124,9 +165,9 @@ export default function LoginScreen() {
             )}
           />
 
-          <View style={{ alignSelf: 'flex-end', paddingTop: theme.spacing.xs }}>
+          <View style={{ alignSelf: 'flex-end', marginTop: -theme.spacing.sm }}>
             <Link href="/forgot-password">
-              <AppText color={theme.colors.primary} variant="bodyStrong">
+              <AppText color={theme.colors.primary} variant="bodyStrong" style={{ paddingVertical: (theme.sizes.touchTarget - theme.typography.bodyStrong.lineHeight) / 2 }}>
                 {t('auth.forgot_password_link')}
               </AppText>
             </Link>
@@ -136,6 +177,7 @@ export default function LoginScreen() {
             label={t('auth.login')}
             loading={isSubmitting}
             disabled={isSubmitting}
+            style={styles.submit}
             onPress={() => void handleSubmit(onSubmit)()}
           />
         </Card>
@@ -143,7 +185,7 @@ export default function LoginScreen() {
         <View style={[styles.footerRow, { gap: theme.spacing.xs }]}>
           <AppText muted>{t('auth.no_account')}</AppText>
           <Link href="/register">
-            <AppText color={theme.colors.primary} variant="bodyStrong">
+            <AppText color={theme.colors.primary} variant="bodyStrong" style={{ paddingVertical: (theme.sizes.touchTarget - theme.typography.bodyStrong.lineHeight) / 2 }}>
               {t('auth.register')}
             </AppText>
           </Link>
@@ -156,6 +198,31 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+  },
+  header: {
+    alignItems: 'center',
+  },
+  headerText: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+  },
+  centerText: {
+    textAlign: 'center',
+  },
+  iconHalo: {
+    width: 96,
+    height: 96,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconCore: {
+    width: 64,
+    height: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submit: {
+    minHeight: 52,
   },
   errorBanner: {
     flexDirection: 'row',

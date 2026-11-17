@@ -26,6 +26,7 @@ import { usePreferences } from '@/context/PreferencesContext';
 import { useCurrencies } from '@/hooks/useCurrencies';
 import { useDashboardSummary } from '@/hooks/useDashboard';
 import { useUnreadNotificationCount } from '@/hooks/useNotifications';
+import { useSavingsGoals } from '@/hooks/useSavings';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useTheme } from '@/theme/useTheme';
 import type { Transaction } from '@/types/api';
@@ -54,9 +55,22 @@ export default function HomeScreen() {
   const [fabSheetOpen, setFabSheetOpen] = useState(false);
 
   const summaryQuery = useDashboardSummary(month, year);
+  const savingsQuery = useSavingsGoals();
   const unreadQuery = useUnreadNotificationCount();
   const unreadCount = unreadQuery.data ?? 0;
   const data = summaryQuery.data;
+
+  // Read total savings from savingsQuery (same source as Savings tab) with fallback to dashboard summary
+  const savingsSummary = savingsQuery.data?.summary;
+  const computedSavedFromItems =
+    savingsQuery.data?.items?.reduce((sum, goal) => sum + Number(goal.currentAmount ?? 0), 0) ?? 0;
+  const totalSavingsNominal =
+    savingsSummary && savingsSummary.totalSaved > 0
+      ? savingsSummary.totalSaved
+      : computedSavedFromItems > 0
+        ? computedSavedFromItems
+        : Number(data?.totalSavings ?? 0);
+  const totalSavingsTarget = savingsSummary?.totalTarget ?? 0;
 
   const greetingText = t(getGreetingKey());
   const userName = user?.name?.trim() || '';
@@ -65,15 +79,17 @@ export default function HomeScreen() {
     <Screen padded={false}>
       <ScrollView
         contentContainerStyle={{
-          padding: theme.spacing.lg,
+          paddingHorizontal: theme.spacing.lg,
+          paddingTop: theme.spacing.md,
           paddingBottom: theme.spacing.xxl * 2.5,
-          gap: theme.spacing.md,
+          gap: theme.spacing.lg,
         }}
         refreshControl={
           <RefreshControl
             refreshing={summaryQuery.isRefetching && !summaryQuery.isLoading}
             onRefresh={() => {
               void summaryQuery.refetch();
+              void savingsQuery.refetch();
               void unreadQuery.refetch();
             }}
             tintColor={theme.colors.primary}
@@ -84,7 +100,7 @@ export default function HomeScreen() {
         {/* Header with Greeting & Bell Icon + Unread Badge (DASH-01, DASH-09) */}
         <View style={[styles.headerRow, { gap: theme.spacing.md }]}>
           <View style={{ flex: 1 }}>
-            <AppText variant="caption" muted>
+            <AppText variant="body" muted numberOfLines={1}>
               {greetingText}
               {userName ? `, ${userName}` : ''}
             </AppText>
@@ -104,7 +120,7 @@ export default function HomeScreen() {
               },
             ]}
           >
-            <Feather name="bell" size={20} color={theme.colors.text} />
+            <Feather name="bell" size={22} color={theme.colors.text} />
             {unreadCount > 0 ? (
               <View
                 style={[
@@ -157,15 +173,38 @@ export default function HomeScreen() {
                 style={{
                   backgroundColor: theme.colors.primary,
                   borderColor: theme.colors.primary,
+                  padding: theme.spacing.xl,
+                  gap: theme.spacing.md,
+                  overflow: 'hidden',
+                  shadowColor: theme.colors.primary,
+                  shadowOpacity: theme.isDark ? 0 : 0.3,
+                  shadowRadius: 16,
+                  shadowOffset: { width: 0, height: 8 },
+                  elevation: theme.isDark ? 0 : 6,
                 }}
               >
+                <View
+                  pointerEvents="none"
+                  style={[styles.heroCircleLarge, { backgroundColor: `${theme.colors.onPrimary}14` }]}
+                />
+                <View
+                  pointerEvents="none"
+                  style={[styles.heroCircleSmall, { backgroundColor: `${theme.colors.onPrimary}10` }]}
+                />
                 <View style={[styles.cardHeaderRow, { gap: theme.spacing.sm }]}>
-                  <Feather name="credit-card" size={18} color={theme.colors.onPrimary} />
+                  <View
+                    style={[
+                      styles.heroIcon,
+                      { backgroundColor: `${theme.colors.onPrimary}26`, borderRadius: theme.radius.full },
+                    ]}
+                  >
+                    <Feather name="credit-card" size={18} color={theme.colors.onPrimary} />
+                  </View>
                   <AppText variant="bodyStrong" color={theme.colors.onPrimary}>
                     {t('dashboard.balance')}
                   </AppText>
                 </View>
-                <AppText variant="title" color={theme.colors.onPrimary}>
+                <AppText variant="title" color={theme.colors.onPrimary} style={styles.heroAmount}>
                   {formatAmount(data.balance)}
                 </AppText>
                 <AppText
@@ -185,18 +224,18 @@ export default function HomeScreen() {
                 onPress={() => router.push('/(tabs)/transactions')}
                 style={{ flex: 1 }}
               >
-                <Card>
-                  <View style={[styles.cardHeaderRow, { gap: theme.spacing.xs }]}>
+                <Card style={{ padding: theme.spacing.lg, gap: theme.spacing.md }}>
+                  <View style={[styles.cardHeaderRow, { gap: theme.spacing.sm }]}>
                     <View
                       style={[
                         styles.iconCircle,
                         {
-                          backgroundColor: `${theme.colors.income}1F`,
+                          backgroundColor: `${theme.colors.income}15`,
                           borderRadius: theme.radius.full,
                         },
                       ]}
                     >
-                      <Feather name="arrow-down-left" size={16} color={theme.colors.income} />
+                      <Feather name="arrow-down-left" size={18} color={theme.colors.income} />
                     </View>
                     <AppText variant="caption" muted style={{ flex: 1 }} numberOfLines={1}>
                       {t('dashboard.income_this_month')}
@@ -213,18 +252,18 @@ export default function HomeScreen() {
                 onPress={() => router.push('/(tabs)/transactions')}
                 style={{ flex: 1 }}
               >
-                <Card>
-                  <View style={[styles.cardHeaderRow, { gap: theme.spacing.xs }]}>
+                <Card style={{ padding: theme.spacing.lg, gap: theme.spacing.md }}>
+                  <View style={[styles.cardHeaderRow, { gap: theme.spacing.sm }]}>
                     <View
                       style={[
                         styles.iconCircle,
                         {
-                          backgroundColor: `${theme.colors.expense}1F`,
+                          backgroundColor: `${theme.colors.expense}15`,
                           borderRadius: theme.radius.full,
                         },
                       ]}
                     >
-                      <Feather name="arrow-up-right" size={16} color={theme.colors.expense} />
+                      <Feather name="arrow-up-right" size={18} color={theme.colors.expense} />
                     </View>
                     <AppText variant="caption" muted style={{ flex: 1 }} numberOfLines={1}>
                       {t('dashboard.expense_this_month')}
@@ -242,25 +281,37 @@ export default function HomeScreen() {
               accessibilityRole="button"
               onPress={() => router.push('/(tabs)/savings')}
             >
-              <Card>
-                <View style={[styles.cardHeaderRow, { justifyContent: 'space-between' }]}>
-                  <View style={[styles.cardHeaderRow, { gap: theme.spacing.sm }]}>
+              <Card style={{ padding: theme.spacing.lg }}>
+                <View style={[styles.cardHeaderRow, { justifyContent: 'space-between', gap: theme.spacing.md }]}>
+                  <View style={[styles.cardHeaderRow, { gap: theme.spacing.md, flex: 1 }]}>
                     <View
                       style={[
                         styles.iconCircle,
                         {
-                          backgroundColor: `${theme.colors.info}1F`,
+                          backgroundColor: `${theme.colors.info}15`,
                           borderRadius: theme.radius.full,
                         },
                       ]}
                     >
-                      <Feather name="award" size={16} color={theme.colors.info} />
+                      <Feather name="award" size={18} color={theme.colors.info} />
                     </View>
-                    <View>
-                      <AppText variant="caption" muted>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <AppText variant="caption" muted numberOfLines={1}>
                         {t('dashboard.savings')}
                       </AppText>
-                      <AppText variant="subtitle">{formatAmount(data.totalSavings)}</AppText>
+                      <AppText
+                        variant="subtitle"
+                        color={theme.colors.text}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                      >
+                        {formatAmount(totalSavingsNominal)}
+                      </AppText>
+                      {totalSavingsTarget > 0 ? (
+                        <AppText variant="caption" muted numberOfLines={1}>
+                          {t('savings.target')}: {formatAmount(totalSavingsTarget)}
+                        </AppText>
+                      ) : null}
                     </View>
                   </View>
                   <Feather name="chevron-right" size={20} color={theme.colors.textMuted} />
@@ -269,25 +320,29 @@ export default function HomeScreen() {
             </Pressable>
 
             {/* Pie Chart Expense by Category (DASH-03) */}
-            <Card>
+            <Card style={{ padding: theme.spacing.lg, gap: theme.spacing.md }}>
               <AppText variant="subtitle">{t('dashboard.expense_by_category')}</AppText>
               <CategoryPieChart items={data.expenseByCategory} />
             </Card>
 
             {/* Line Chart 6-Month Trend (DASH-04) */}
-            <Card>
+            <Card style={{ padding: theme.spacing.lg, gap: theme.spacing.md }}>
               <AppText variant="subtitle">{t('dashboard.trend_last_6_months')}</AppText>
               <TrendLineChart points={data.trend} />
             </Card>
 
             {/* 5 Recent Transactions (DASH-05) */}
-            <Card>
+            <Card style={{ padding: theme.spacing.lg, gap: theme.spacing.sm }}>
               <View style={styles.sectionHeaderRow}>
                 <AppText variant="subtitle">{t('dashboard.recent_transactions')}</AppText>
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => router.push('/(tabs)/transactions')}
-                  style={{ paddingVertical: theme.spacing.xs, paddingHorizontal: theme.spacing.xs }}
+                  style={{
+                    minHeight: theme.sizes.touchTarget,
+                    justifyContent: 'center',
+                    paddingHorizontal: theme.spacing.xs,
+                  }}
                 >
                   <AppText variant="bodyStrong" color={theme.colors.primary}>
                     {t('dashboard.view_all')}
@@ -304,8 +359,8 @@ export default function HomeScreen() {
                   onAction={() => router.push('/transaction/form')}
                 />
               ) : (
-                <View style={{ gap: theme.spacing.sm }}>
-                  {data.recentTransactions.slice(0, 5).map((tx) => {
+                <View>
+                  {data.recentTransactions.slice(0, 5).map((tx, idx, arr) => {
                     const isExpense = tx.type === 'expense';
                     const amountColor = isExpense ? theme.colors.expense : theme.colors.income;
                     const sign = isExpense ? '-' : '+';
@@ -317,10 +372,10 @@ export default function HomeScreen() {
                         style={[
                           styles.txRow,
                           {
-                            borderRadius: theme.radius.control,
-                            backgroundColor: theme.colors.surfaceAlt,
-                            padding: theme.spacing.md,
-                            gap: theme.spacing.sm,
+                            paddingVertical: theme.spacing.md,
+                            gap: theme.spacing.md,
+                            borderBottomWidth: idx < arr.length - 1 ? 1 : 0,
+                            borderBottomColor: theme.colors.border,
                           },
                         ]}
                       >
@@ -349,14 +404,24 @@ export default function HomeScreen() {
             {data.insights && data.insights.length > 0 && (
               <View style={{ gap: theme.spacing.md }}>
                 {data.insights.map((insight, idx) => (
-                  <Card key={idx} style={{ gap: theme.spacing.sm }}>
+                  <Card key={idx} style={{ padding: theme.spacing.lg, gap: theme.spacing.sm }}>
                     {insight.type === 'expense_change' && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
-                        <Feather
-                          name={insight.direction === 'up' ? 'trending-up' : 'trending-down'}
-                          size={20}
-                          color={insight.direction === 'up' ? theme.colors.expense : theme.colors.income}
-                        />
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}>
+                        <View
+                          style={[
+                            styles.iconCircle,
+                            {
+                              backgroundColor: `${insight.direction === 'up' ? theme.colors.expense : theme.colors.income}15`,
+                              borderRadius: theme.radius.full,
+                            },
+                          ]}
+                        >
+                          <Feather
+                            name={insight.direction === 'up' ? 'trending-up' : 'trending-down'}
+                            size={18}
+                            color={insight.direction === 'up' ? theme.colors.expense : theme.colors.income}
+                          />
+                        </View>
                         <View style={{ flex: 1 }}>
                           <AppText variant="bodyStrong">
                             {t('dashboard.insight_expense_change_title')}
@@ -371,15 +436,15 @@ export default function HomeScreen() {
                       </View>
                     )}
                     {insight.type === 'top_category' && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}>
                         <View
-                          style={{
-                            width: 12,
-                            height: 12,
-                            borderRadius: 6,
-                            backgroundColor: insight.categoryName ? 'transparent' : theme.colors.warning,
-                          }}
-                        />
+                          style={[
+                            styles.iconCircle,
+                            { backgroundColor: `${theme.colors.warning}15`, borderRadius: theme.radius.full },
+                          ]}
+                        >
+                          <Feather name="pie-chart" size={18} color={theme.colors.warning} />
+                        </View>
                         <View style={{ flex: 1 }}>
                           <AppText variant="bodyStrong">
                             {t('dashboard.insight_top_category_title')}
@@ -395,8 +460,15 @@ export default function HomeScreen() {
                       </View>
                     )}
                     {insight.type === 'budgets_near_limit' && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
-                        <Feather name="alert-triangle" size={20} color={theme.colors.warning} />
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}>
+                        <View
+                          style={[
+                            styles.iconCircle,
+                            { backgroundColor: `${theme.colors.warning}15`, borderRadius: theme.radius.full },
+                          ]}
+                        >
+                          <Feather name="alert-triangle" size={18} color={theme.colors.warning} />
+                        </View>
                         <View style={{ flex: 1 }}>
                           <AppText variant="bodyStrong">
                             {t('dashboard.insight_budgets_near_limit_title')}
@@ -429,6 +501,10 @@ export default function HomeScreen() {
             bottom: theme.spacing.lg,
             backgroundColor: theme.colors.primary,
             borderRadius: theme.radius.full,
+            shadowColor: theme.colors.primary,
+            shadowOpacity: theme.isDark ? 0 : 0.35,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: 6 },
           },
         ]}
       >
@@ -506,10 +582,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   iconCircle: {
-    width: 30,
-    height: 30,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  heroIcon: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroAmount: {
+    fontSize: 32,
+    lineHeight: 40,
+    fontWeight: '700',
+  },
+  heroCircleLarge: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    top: -60,
+    right: -50,
+  },
+  heroCircleSmall: {
+    position: 'absolute',
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    bottom: -40,
+    left: -30,
   },
   sectionHeaderRow: {
     flexDirection: 'row',

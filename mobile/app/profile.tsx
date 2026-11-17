@@ -54,13 +54,16 @@ export default function ProfileScreen() {
 
   // Change password sheet state
   const [passwordSheetOpen, setPasswordSheetOpen] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState(null as string | null);
   const [savingPassword, setSavingPassword] = useState(false);
 
   // Logout confirmation states
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [confirmLogoutAll, setConfirmLogoutAll] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  const softBorderColor = theme.isDark ? theme.colors.border : `${theme.colors.border}B8`;
+  const surfaceSubtle = theme.isDark ? theme.colors.surfaceAlt : `${theme.colors.surfaceAlt}90`;
 
   const editForm = useForm<EditProfileFormValues>({
     resolver: zodResolver(editProfileFormSchema),
@@ -280,7 +283,8 @@ export default function ProfileScreen() {
     <Screen padded={false}>
       <ScrollView
         contentContainerStyle={{
-          padding: theme.spacing.lg,
+          paddingHorizontal: theme.spacing.lg,
+          paddingTop: theme.spacing.md,
           paddingBottom: theme.spacing.xxl * 2,
           gap: theme.spacing.md,
         }}
@@ -293,25 +297,28 @@ export default function ProfileScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={[styles.headerRow, { gap: theme.spacing.sm }]}>
+        {/* Header — Soft Depth Back Button */}
+        <View style={[styles.headerRow, { gap: theme.spacing.md }]}>
           <Pressable
             accessibilityRole="button"
             onPress={() => router.back()}
-            style={[
+            style={({ pressed }) => [
               styles.backBtn,
               {
-                minWidth: theme.sizes.touchTarget,
-                minHeight: theme.sizes.touchTarget,
-                borderRadius: theme.radius.control,
+                width: 42,
+                height: 42,
+                borderRadius: 12,
+                backgroundColor: theme.colors.surface,
+                borderColor: softBorderColor,
+                opacity: pressed ? 0.8 : 1,
               },
             ]}
           >
-            <Feather name="arrow-left" size={22} color={theme.colors.text} />
+            <Feather name="arrow-left" size={20} color={theme.colors.text} />
           </Pressable>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, gap: 2 }}>
             <AppText variant="title">{t('profile.title')}</AppText>
-            <AppText variant="caption" muted>
+            <AppText variant="caption" muted numberOfLines={1}>
               {t('profile.subtitle')}
             </AppText>
           </View>
@@ -328,8 +335,16 @@ export default function ProfileScreen() {
           </Card>
         ) : (
           <>
-            {/* Avatar & Identity Card (PRO-01, PRO-02) */}
-            <Card style={{ alignItems: 'center', gap: theme.spacing.sm }}>
+            {/* Avatar & Identity Hero Card (PRO-01, PRO-02) */}
+            <Card
+              style={{
+                alignItems: 'center',
+                gap: theme.spacing.sm,
+                padding: theme.spacing.lg,
+                borderRadius: theme.radius.card + 2,
+                borderColor: softBorderColor,
+              }}
+            >
               <Pressable
                 accessibilityRole="button"
                 disabled={uploadingAvatar}
@@ -343,7 +358,7 @@ export default function ProfileScreen() {
                       styles.avatarImage,
                       {
                         borderRadius: theme.radius.full,
-                        borderColor: theme.colors.primary,
+                        borderColor: `${theme.colors.primary}50`,
                       },
                     ]}
                   />
@@ -352,12 +367,14 @@ export default function ProfileScreen() {
                     style={[
                       styles.avatarFallback,
                       {
-                        backgroundColor: theme.colors.primary,
+                        backgroundColor: `${theme.colors.primary}18`,
+                        borderColor: `${theme.colors.primary}40`,
+                        borderWidth: 2,
                         borderRadius: theme.radius.full,
                       },
                     ]}
                   >
-                    <AppText variant="title" color={theme.colors.onPrimary}>
+                    <AppText variant="title" color={theme.colors.primary}>
                       {initials}
                     </AppText>
                   </View>
@@ -367,12 +384,12 @@ export default function ProfileScreen() {
                     styles.cameraBadge,
                     {
                       backgroundColor: theme.colors.surface,
-                      borderColor: theme.colors.border,
+                      borderColor: softBorderColor,
                       borderRadius: theme.radius.full,
                     },
                   ]}
                 >
-                  <Feather name="camera" size={15} color={theme.colors.primary} />
+                  <Feather name="camera" size={14} color={theme.colors.primary} />
                 </View>
               </Pressable>
 
@@ -385,7 +402,7 @@ export default function ProfileScreen() {
                   accessibilityRole="button"
                   disabled={uploadingAvatar}
                   onPress={() => setConfirmRemoveAvatar(true)}
-                  style={{ paddingVertical: theme.spacing.xs }}
+                  style={{ paddingVertical: 2 }}
                 >
                   <AppText variant="caption" color={theme.colors.danger}>
                     {t('profile.remove_avatar')}
@@ -393,7 +410,7 @@ export default function ProfileScreen() {
                 </Pressable>
               ) : null}
 
-              <View style={{ alignItems: 'center', gap: 2 }}>
+              <View style={{ alignItems: 'center', gap: 2, marginTop: 2 }}>
                 <AppText variant="subtitle">{displayName}</AppText>
                 <AppText variant="caption" muted>
                   {displayEmail}
@@ -402,75 +419,207 @@ export default function ProfileScreen() {
 
               <Badge label={t('profile.active')} variant="success" />
 
-              <View style={{ width: '100%', marginTop: theme.spacing.xs }}>
-                <Button
-                  variant="secondary"
-                  label={t('profile.edit')}
-                  onPress={handleOpenEditProfile}
-                />
-              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleOpenEditProfile}
+                style={({ pressed }) => [
+                  styles.softEditBtn,
+                  {
+                    width: '100%',
+                    minHeight: 42,
+                    marginTop: theme.spacing.xs,
+                    borderRadius: 12,
+                    backgroundColor: `${theme.colors.primary}12`,
+                    borderColor: `${theme.colors.primary}28`,
+                    opacity: pressed ? 0.8 : 1,
+                    gap: 8,
+                  },
+                ]}
+              >
+                <Feather name="edit-2" size={15} color={theme.colors.primary} />
+                <AppText variant="bodyStrong" color={theme.colors.primary}>
+                  {t('profile.edit')}
+                </AppText>
+              </Pressable>
             </Card>
 
-            {/* 3 Statistics Cards (PRO-03) */}
+            {/* 3 Statistics Cards (PRO-03) — Soft Layered Grid */}
             <View style={[styles.statsGrid, { gap: theme.spacing.sm }]}>
-              <Card style={{ flex: 1 }}>
-                <View style={[styles.statHeader, { gap: theme.spacing.xs }]}>
-                  <Feather name="repeat" size={16} color={theme.colors.primary} />
-                  <AppText variant="caption" muted numberOfLines={1}>
+              <Card
+                style={{
+                  flex: 1,
+                  padding: theme.spacing.md,
+                  gap: theme.spacing.sm,
+                  borderRadius: theme.radius.card,
+                  borderColor: softBorderColor,
+                }}
+              >
+                <View style={[styles.statHeader, { gap: 8 }]}>
+                  <View
+                    style={[
+                      styles.statIconBox,
+                      { backgroundColor: `${theme.colors.primary}14`, borderRadius: 10 },
+                    ]}
+                  >
+                    <Feather name="repeat" size={16} color={theme.colors.primary} />
+                  </View>
+                  <AppText variant="caption" muted numberOfLines={1} style={{ flex: 1 }}>
                     {t('profile.total_transactions')}
                   </AppText>
                 </View>
-                <AppText variant="subtitle">
+                <AppText variant="title" style={{ fontSize: 22 }}>
                   {profileData?.stats?.transactionCount ?? 0}
                 </AppText>
               </Card>
 
-              <Card style={{ flex: 1 }}>
-                <View style={[styles.statHeader, { gap: theme.spacing.xs }]}>
-                  <Feather name="target" size={16} color={theme.colors.info} />
-                  <AppText variant="caption" muted numberOfLines={1}>
+              <Card
+                style={{
+                  flex: 1,
+                  padding: theme.spacing.md,
+                  gap: theme.spacing.sm,
+                  borderRadius: theme.radius.card,
+                  borderColor: softBorderColor,
+                }}
+              >
+                <View style={[styles.statHeader, { gap: 8 }]}>
+                  <View
+                    style={[
+                      styles.statIconBox,
+                      { backgroundColor: `${theme.colors.info}14`, borderRadius: 10 },
+                    ]}
+                  >
+                    <Feather name="target" size={16} color={theme.colors.info} />
+                  </View>
+                  <AppText variant="caption" muted numberOfLines={1} style={{ flex: 1 }}>
                     {t('profile.saving_targets')}
                   </AppText>
                 </View>
-                <AppText variant="subtitle">
+                <AppText variant="title" style={{ fontSize: 22 }}>
                   {profileData?.stats?.savingsGoalCount ?? 0}
                 </AppText>
               </Card>
             </View>
 
-            <Card>
-              <View style={[styles.statHeader, { gap: theme.spacing.xs }]}>
-                <Feather name="award" size={16} color={theme.colors.income} />
-                <AppText variant="caption" muted>
-                  {t('profile.total_savings')}
-                </AppText>
+            <Card
+              style={{
+                padding: theme.spacing.lg,
+                borderRadius: theme.radius.card + 2,
+                borderColor: softBorderColor,
+                borderLeftWidth: 4,
+                borderLeftColor: theme.colors.income,
+              }}
+            >
+              <View style={[styles.statHeader, { gap: theme.spacing.md }]}>
+                <View
+                  style={[
+                    styles.statIconBoxLarge,
+                    { backgroundColor: `${theme.colors.income}14`, borderRadius: 12 },
+                  ]}
+                >
+                  <Feather name="award" size={19} color={theme.colors.income} />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <AppText variant="caption" muted>
+                    {t('profile.total_savings')}
+                  </AppText>
+                  <AppText
+                    variant="title"
+                    color={theme.colors.income}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                  >
+                    {formatAmount(profileData?.stats?.totalSavings ?? 0)}
+                  </AppText>
+                </View>
               </View>
-              <AppText variant="title" color={theme.colors.income}>
-                {formatAmount(profileData?.stats?.totalSavings ?? 0)}
-              </AppText>
             </Card>
 
-            {/* Account Security Section (AUTH-05, AUTH-06) */}
-            <Card>
-              <AppText variant="subtitle">{t('profile.security_section')}</AppText>
+            {/* Account Security Section (AUTH-05, AUTH-06) — Soft Island List */}
+            <Card
+              style={{
+                padding: theme.spacing.lg,
+                gap: theme.spacing.md,
+                borderRadius: theme.radius.card + 2,
+                borderColor: softBorderColor,
+              }}
+            >
+              <View style={[styles.statHeader, { gap: theme.spacing.sm }]}>
+                <View
+                  style={[
+                    styles.statIconBox,
+                    { backgroundColor: `${theme.colors.primary}14`, borderRadius: 10 },
+                  ]}
+                >
+                  <Feather name="shield" size={16} color={theme.colors.primary} />
+                </View>
+                <AppText variant="subtitle">{t('profile.security_section')}</AppText>
+              </View>
 
-              <Button
-                variant="secondary"
-                label={t('profile.change_password')}
-                onPress={handleOpenChangePassword}
-              />
+              <View style={{ gap: theme.spacing.sm }}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleOpenChangePassword}
+                  style={({ pressed }) => [
+                    styles.securityRow,
+                    {
+                      padding: theme.spacing.md,
+                      borderRadius: 12,
+                      backgroundColor: pressed ? theme.colors.border : surfaceSubtle,
+                      borderColor: softBorderColor,
+                      gap: theme.spacing.md,
+                    },
+                  ]}
+                >
+                  <Feather name="lock" size={18} color={theme.colors.primary} />
+                  <AppText variant="bodyStrong" style={{ flex: 1 }}>
+                    {t('profile.change_password')}
+                  </AppText>
+                  <Feather name="chevron-right" size={18} color={theme.colors.textMuted} />
+                </Pressable>
 
-              <Button
-                variant="secondary"
-                label={t('profile.logout_all_devices')}
-                onPress={() => setConfirmLogoutAll(true)}
-              />
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setConfirmLogoutAll(true)}
+                  style={({ pressed }) => [
+                    styles.securityRow,
+                    {
+                      padding: theme.spacing.md,
+                      borderRadius: 12,
+                      backgroundColor: pressed ? theme.colors.border : surfaceSubtle,
+                      borderColor: softBorderColor,
+                      gap: theme.spacing.md,
+                    },
+                  ]}
+                >
+                  <Feather name="smartphone" size={18} color={theme.colors.warning} />
+                  <AppText variant="bodyStrong" style={{ flex: 1 }}>
+                    {t('profile.logout_all_devices')}
+                  </AppText>
+                  <Feather name="chevron-right" size={18} color={theme.colors.textMuted} />
+                </Pressable>
 
-              <Button
-                variant="danger"
-                label={t('auth.logout')}
-                onPress={() => setConfirmLogout(true)}
-              />
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setConfirmLogout(true)}
+                  style={({ pressed }) => [
+                    styles.securityRow,
+                    {
+                      padding: theme.spacing.md,
+                      borderRadius: 12,
+                      backgroundColor: `${theme.colors.danger}12`,
+                      borderColor: `${theme.colors.danger}30`,
+                      opacity: pressed ? 0.8 : 1,
+                      gap: theme.spacing.md,
+                    },
+                  ]}
+                >
+                  <Feather name="log-out" size={18} color={theme.colors.danger} />
+                  <AppText variant="bodyStrong" color={theme.colors.danger} style={{ flex: 1 }}>
+                    {t('auth.logout')}
+                  </AppText>
+                  <Feather name="chevron-right" size={18} color={theme.colors.danger} />
+                </Pressable>
+              </View>
             </Card>
           </>
         )}
@@ -746,6 +895,7 @@ const styles = StyleSheet.create({
   backBtn: {
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
   avatarWrapper: {
     position: 'relative',
@@ -773,12 +923,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  softEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
   statsGrid: {
     flexDirection: 'row',
   },
   statHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  statIconBox: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statIconBoxLarge: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  securityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
   },
   errorBox: {
     flexDirection: 'row',

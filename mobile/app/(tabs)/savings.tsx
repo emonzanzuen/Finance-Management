@@ -134,9 +134,9 @@ export default function SavingsScreen() {
   };
 
   const getStatusColor = (status: SavingsGoalStatus): string => {
-    if (status === 'completed') return theme.colors.income; // #10B981
-    if (status === 'almost_done') return theme.colors.warning; // #F59E0B
-    return theme.colors.primary; // #4F46E5
+    if (status === 'completed') return theme.colors.income;
+    if (status === 'almost_done') return theme.colors.warning;
+    return theme.colors.primary;
   };
 
   const getStatusLabel = (status: SavingsGoalStatus): string => {
@@ -350,45 +350,54 @@ export default function SavingsScreen() {
 
   const isGoalSaving = createGoalMutation.isPending || updateGoalMutation.isPending;
 
+  const summaryProgressColor = summary
+    ? summary.percentage >= 100
+      ? theme.colors.income
+      : summary.percentage >= 80
+        ? theme.colors.warning
+        : theme.colors.primary
+    : theme.colors.primary;
+
   return (
     <Screen padded={false}>
       <View
         style={{
+          flex: 1,
+          gap: theme.spacing.md,
           paddingHorizontal: theme.spacing.lg,
-          paddingTop: theme.spacing.lg,
-          gap: theme.spacing.xs,
+          paddingTop: theme.spacing.md,
         }}
       >
-        <View style={styles.headerRow}>
+        {/* Header (aligned consistently with Transactions & Budget screens) */}
+        <View style={[styles.headerRow, { gap: theme.spacing.md }]}>
           <View style={{ flex: 1 }}>
             <AppText variant="title">{t('savings.title')}</AppText>
-            <AppText variant="caption" muted>
+            <AppText variant="caption" muted numberOfLines={1}>
               {t('savings.subtitle')}
             </AppText>
           </View>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel={t('common.add')}
             onPress={openCreateGoalModal}
-            style={[
+            style={({ pressed }) => [
               styles.addBtn,
               {
-                minHeight: theme.sizes.touchTarget,
-                paddingHorizontal: theme.spacing.md,
-                borderRadius: theme.radius.control,
+                borderRadius: theme.radius.control + 2,
                 backgroundColor: theme.colors.primary,
-                gap: theme.spacing.xs,
+                opacity: pressed ? 0.85 : 1,
+                shadowColor: theme.colors.primary,
+                shadowOpacity: theme.isDark ? 0 : 0.2,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: theme.isDark ? 0 : 2,
               },
             ]}
           >
-            <Feather name="plus" size={18} color={theme.colors.onPrimary} />
-            <AppText variant="bodyStrong" color={theme.colors.onPrimary}>
-              {t('common.add')}
-            </AppText>
+            <Feather name="plus" size={22} color={theme.colors.onPrimary} />
           </Pressable>
         </View>
-      </View>
 
-      <View style={{ flex: 1, paddingHorizontal: theme.spacing.lg, paddingTop: theme.spacing.md }}>
         {savingsQuery.isLoading ? (
           <SkeletonList count={4} itemHeight={130} />
         ) : savingsQuery.isError ? (
@@ -400,9 +409,10 @@ export default function SavingsScreen() {
           <FlatList
             data={goals}
             keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
             contentContainerStyle={{
               gap: theme.spacing.md,
-              paddingBottom: theme.spacing.xxl * 2,
+              paddingBottom: 96,
               flexGrow: 1,
             }}
             refreshControl={
@@ -414,39 +424,121 @@ export default function SavingsScreen() {
             }
             ListHeaderComponent={
               summary ? (
-                /* Total Savings Progress Summary (SAV-04, BR-15) */
-                <Card>
-                  <View style={styles.summaryTopRow}>
-                    <AppText variant="subtitle">{t('savings.progress')}</AppText>
-                    <AppText variant="bodyStrong">{Math.round(summary.percentage)}%</AppText>
-                  </View>
-                  <ProgressBar
-                    percentage={summary.percentage}
-                    color={
-                      summary.percentage >= 100
-                        ? theme.colors.income
-                        : summary.percentage >= 80
-                          ? theme.colors.warning
-                          : theme.colors.primary
-                    }
-                  />
-                  <View style={styles.summaryNumbersRow}>
-                    <View>
-                      <AppText variant="caption" muted>
-                        {t('savings.total_saved')}
-                      </AppText>
-                      <AppText variant="bodyStrong" color={theme.colors.income}>
-                        {formatAmount(summary.totalSaved)}
-                      </AppText>
+                <View style={{ gap: theme.spacing.md }}>
+                  {/* Total Savings Progress Summary Card (SAV-04, BR-15) */}
+                  <Card
+                    style={{
+                      padding: theme.spacing.lg,
+                      gap: theme.spacing.md,
+                      borderRadius: theme.radius.card + 2,
+                      backgroundColor: theme.colors.surface,
+                      borderColor: theme.colors.border,
+                      shadowColor: theme.colors.text,
+                      shadowOpacity: theme.isDark ? 0 : 0.03,
+                      shadowRadius: 12,
+                      shadowOffset: { width: 0, height: 2 },
+                      elevation: theme.isDark ? 0 : 1,
+                    }}
+                  >
+                    <View style={[styles.summaryTopRow, { gap: theme.spacing.sm }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, flex: 1 }}>
+                        <View
+                          style={[
+                            styles.summaryIconBox,
+                            {
+                              backgroundColor: `${summaryProgressColor}15`,
+                              borderRadius: theme.radius.control,
+                            },
+                          ]}
+                        >
+                          <Feather name="award" size={18} color={summaryProgressColor} />
+                        </View>
+                        <AppText variant="subtitle" style={{ flex: 1 }} numberOfLines={1}>
+                          {t('savings.progress')}
+                        </AppText>
+                      </View>
+                      <View
+                        style={[
+                          styles.percentPill,
+                          {
+                            backgroundColor: `${summaryProgressColor}15`,
+                            borderRadius: theme.radius.full,
+                            paddingHorizontal: theme.spacing.sm + 2,
+                            paddingVertical: 4,
+                          },
+                        ]}
+                      >
+                        <AppText variant="caption" color={summaryProgressColor} style={{ fontWeight: '700' }}>
+                          {Math.round(summary.percentage)}%
+                        </AppText>
+                      </View>
                     </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <AppText variant="caption" muted>
-                        {t('savings.total_target')}
-                      </AppText>
-                      <AppText variant="bodyStrong">{formatAmount(summary.totalTarget)}</AppText>
+
+                    <ProgressBar percentage={summary.percentage} color={summaryProgressColor} />
+
+                    {/* 2 Soft Metric Boxes: Total Saved & Total Target */}
+                    <View style={[styles.summaryGrid, { gap: theme.spacing.sm }]}>
+                      <View
+                        style={[
+                          styles.metricBox,
+                          {
+                            backgroundColor: `${theme.colors.income}10`,
+                            borderColor: `${theme.colors.income}30`,
+                            borderRadius: theme.radius.control,
+                            padding: theme.spacing.sm + 2,
+                          },
+                        ]}
+                      >
+                        <AppText variant="caption" muted numberOfLines={1}>
+                          {t('savings.total_saved')}
+                        </AppText>
+                        <AppText
+                          variant="bodyStrong"
+                          color={theme.colors.income}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                        >
+                          {formatAmount(summary.totalSaved)}
+                        </AppText>
+                      </View>
+
+                      <View
+                        style={[
+                          styles.metricBox,
+                          {
+                            backgroundColor: theme.colors.surfaceAlt,
+                            borderColor: theme.colors.border,
+                            borderRadius: theme.radius.control,
+                            padding: theme.spacing.sm + 2,
+                          },
+                        ]}
+                      >
+                        <AppText variant="caption" muted numberOfLines={1}>
+                          {t('savings.total_target')}
+                        </AppText>
+                        <AppText
+                          variant="bodyStrong"
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                        >
+                          {formatAmount(summary.totalTarget)}
+                        </AppText>
+                      </View>
                     </View>
-                  </View>
-                </Card>
+                  </Card>
+
+                  {/* Section Divider Bar between Summary Card and Goal Item Cards */}
+                  {goals.length > 0 ? (
+                    <View style={[styles.sectionDividerBar, { paddingHorizontal: 4 }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs }}>
+                        <AppText variant="bodyStrong" color={theme.colors.textMuted}>
+                          {t('savings.title')}
+                        </AppText>
+                        <Badge label={String(goals.length)} variant="neutral" />
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
               ) : null
             }
             ListEmptyComponent={
@@ -462,14 +554,48 @@ export default function SavingsScreen() {
               const isCompleted = item.status === 'completed' || item.percentage >= 100;
               const statusColor = getStatusColor(item.status);
               return (
-                <Card>
-                  <View style={styles.goalHeaderRow}>
-                    <View style={{ flex: 1, gap: theme.spacing.xs }}>
-                      <AppText variant="subtitle">{item.title}</AppText>
+                <Card
+                  style={{
+                    padding: theme.spacing.lg,
+                    gap: theme.spacing.md,
+                    borderRadius: theme.radius.card + 2,
+                    borderColor: theme.colors.border,
+                    borderLeftWidth: 4,
+                    borderLeftColor: statusColor,
+                    backgroundColor: theme.colors.surface,
+                    shadowColor: theme.colors.text,
+                    shadowOpacity: theme.isDark ? 0 : 0.03,
+                    shadowRadius: 12,
+                    shadowOffset: { width: 0, height: 2 },
+                    elevation: theme.isDark ? 0 : 1,
+                  }}
+                >
+                  {/* Goal Header Row */}
+                  <View style={[styles.goalHeaderRow, { gap: theme.spacing.sm }]}>
+                    <View
+                      style={[
+                        styles.goalIconBox,
+                        {
+                          backgroundColor: `${statusColor}14`,
+                          borderRadius: theme.radius.control,
+                        },
+                      ]}
+                    >
+                      <Feather
+                        name={isCompleted ? 'check-circle' : 'target'}
+                        size={19}
+                        color={statusColor}
+                      />
+                    </View>
+
+                    <View style={{ flex: 1, gap: 3 }}>
+                      <AppText variant="subtitle" numberOfLines={1}>
+                        {item.title}
+                      </AppText>
                       {item.deadline ? (
-                        <View style={[styles.deadlineRow, { gap: theme.spacing.xs }]}>
-                          <Feather name="calendar" size={13} color={theme.colors.textMuted} />
-                          <AppText variant="caption" muted>
+                        <View style={[styles.deadlineRow, { gap: 5 }]}>
+                          <Feather name="calendar" size={12} color={theme.colors.textMuted} />
+                          <AppText variant="caption" muted numberOfLines={1}>
                             {t('savings.deadline_label')}:{' '}
                             {formatDateDisplay(item.deadline, language)}
                           </AppText>
@@ -484,79 +610,146 @@ export default function SavingsScreen() {
                       />
                       <Pressable
                         accessibilityRole="button"
+                        hitSlop={8}
                         onPress={() => openEditGoalModal(item)}
                         style={[
-                          styles.iconBtn,
+                          styles.actionIconBtn,
                           {
-                            minWidth: theme.sizes.touchTarget,
-                            minHeight: theme.sizes.touchTarget,
+                            borderRadius: theme.radius.control - 2,
+                            backgroundColor: theme.colors.surfaceAlt,
                           },
                         ]}
                       >
-                        <Feather name="edit-2" size={17} color={theme.colors.textMuted} />
+                        <Feather name="edit-2" size={15} color={theme.colors.textMuted} />
                       </Pressable>
                       <Pressable
                         accessibilityRole="button"
+                        hitSlop={8}
                         onPress={() => setDeletingGoal(item)}
                         style={[
-                          styles.iconBtn,
+                          styles.actionIconBtn,
                           {
-                            minWidth: theme.sizes.touchTarget,
-                            minHeight: theme.sizes.touchTarget,
+                            borderRadius: theme.radius.control - 2,
+                            backgroundColor: `${theme.colors.danger}14`,
                           },
                         ]}
                       >
-                        <Feather name="trash-2" size={17} color={theme.colors.danger} />
+                        <Feather name="trash-2" size={15} color={theme.colors.danger} />
                       </Pressable>
                     </View>
                   </View>
 
                   <ProgressBar percentage={item.percentage} color={statusColor} />
 
-                  <View style={styles.summaryNumbersRow}>
-                    <View>
+                  {/* Saved / Target & Remaining Row */}
+                  <View style={[styles.summaryNumbersRow, { gap: theme.spacing.sm }]}>
+                    <View style={{ flex: 1, gap: 2 }}>
                       <AppText variant="caption" muted>
                         {t('savings.current')} / {t('savings.target')}
                       </AppText>
-                      <AppText variant="bodyStrong">
+                      <AppText variant="bodyStrong" numberOfLines={1} adjustsFontSizeToFit>
                         {formatAmount(item.currentAmount)} / {formatAmount(item.targetAmount)} (
                         {Math.round(item.percentage)}%)
                       </AppText>
                     </View>
-                    <View style={{ alignItems: 'flex-end' }}>
+                    <View style={{ alignItems: 'flex-end', gap: 2 }}>
                       <AppText variant="caption" muted>
                         {t('savings.remaining')}
                       </AppText>
-                      <AppText variant="bodyStrong">{formatAmount(item.remaining)}</AppText>
+                      <AppText
+                        variant="bodyStrong"
+                        color={isCompleted ? theme.colors.income : theme.colors.text}
+                      >
+                        {formatAmount(item.remaining)}
+                      </AppText>
                     </View>
                   </View>
 
-                  {/* History, Withdraw & Deposit Buttons (BR-13, SAV-07, SAV-08) */}
-                  <View style={[styles.sheetButtons, { gap: theme.spacing.sm }]}>
-                    <View style={{ flex: 1 }}>
-                      <Button
-                        variant="secondary"
-                        label={t('savings.history')}
-                        onPress={() => setDetailGoalId(item.id)}
-                      />
-                    </View>
+                  {/* Footer Actions: History, Withdraw & Deposit Buttons (BR-13, SAV-07, SAV-08) */}
+                  <View
+                    style={[
+                      styles.cardFooter,
+                      {
+                        paddingTop: theme.spacing.sm,
+                        borderTopColor: theme.colors.border,
+                        gap: theme.spacing.sm,
+                      },
+                    ]}
+                  >
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => setDetailGoalId(item.id)}
+                      style={({ pressed }) => [
+                        styles.softActionBtn,
+                        {
+                          borderRadius: theme.radius.control,
+                          backgroundColor: theme.colors.surfaceAlt,
+                          borderColor: theme.colors.border,
+                          opacity: pressed ? 0.8 : 1,
+                          gap: 5,
+                        },
+                      ]}
+                    >
+                      <Feather name="clock" size={14} color={theme.colors.textMuted} />
+                      <AppText variant="caption" color={theme.colors.text} style={{ fontWeight: '600' }}>
+                        {t('savings.history')}
+                      </AppText>
+                    </Pressable>
+
                     {item.currentAmount > 0 ? (
-                      <View style={{ flex: 1 }}>
-                        <Button
-                          variant="secondary"
-                          label={t('savings.withdraw')}
-                          onPress={() => openWithdrawModal(item)}
-                        />
-                      </View>
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => openWithdrawModal(item)}
+                        style={({ pressed }) => [
+                          styles.softActionBtn,
+                          {
+                            borderRadius: theme.radius.control,
+                            backgroundColor: `${theme.colors.warning}12`,
+                            borderColor: `${theme.colors.warning}30`,
+                            opacity: pressed ? 0.8 : 1,
+                            gap: 5,
+                          },
+                        ]}
+                      >
+                        <Feather name="arrow-up-right" size={14} color={theme.colors.warning} />
+                        <AppText variant="caption" color={theme.colors.warning} style={{ fontWeight: '700' }}>
+                          {t('savings.withdraw')}
+                        </AppText>
+                      </Pressable>
                     ) : null}
-                    <View style={{ flex: 1 }}>
-                      <Button
-                        variant={isCompleted ? 'secondary' : 'primary'}
-                        label={isCompleted ? t('savings.completed') : t('savings.deposit')}
-                        disabled={isCompleted}
-                        onPress={() => openDepositModal(item)}
+
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={isCompleted}
+                      onPress={() => openDepositModal(item)}
+                      style={({ pressed }) => [
+                        styles.softActionBtn,
+                        {
+                          borderRadius: theme.radius.control,
+                          backgroundColor: isCompleted
+                            ? `${theme.colors.income}14`
+                            : `${theme.colors.primary}14`,
+                          borderColor: isCompleted
+                            ? `${theme.colors.income}30`
+                            : `${theme.colors.primary}30`,
+                          opacity: isCompleted ? 0.75 : pressed ? 0.8 : 1,
+                          gap: 5,
+                        },
+                      ]}
+                    >
+                      <Feather
+                        name={isCompleted ? 'check' : 'plus-circle'}
+                        size={14}
+                        color={isCompleted ? theme.colors.income : theme.colors.primary}
                       />
-                    </View>
+                      <AppText
+                        variant="caption"
+                        color={isCompleted ? theme.colors.income : theme.colors.primary}
+                        style={{ fontWeight: '700' }}
+                      >
+                        {isCompleted ? t('savings.completed') : t('savings.deposit')}
+                      </AppText>
+                    </Pressable>
                   </View>
                 </Card>
               );
@@ -1022,14 +1215,14 @@ export default function SavingsScreen() {
                           accessibilityRole="button"
                           onPress={() => setDeletingEntry(entry)}
                           style={[
-                            styles.iconBtn,
+                            styles.actionIconBtn,
                             {
-                              minWidth: theme.sizes.touchTarget,
-                              minHeight: theme.sizes.touchTarget,
+                              borderRadius: theme.radius.control - 2,
+                              backgroundColor: `${theme.colors.danger}14`,
                             },
                           ]}
                         >
-                          <Feather name="trash-2" size={17} color={theme.colors.danger} />
+                          <Feather name="trash-2" size={15} color={theme.colors.danger} />
                         </Pressable>
                       ) : null}
                     </View>
@@ -1077,11 +1270,36 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   addBtn: {
-    flexDirection: 'row',
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   summaryTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  summaryIconBox: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  percentPill: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryGrid: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  metricBox: {
+    flex: 1,
+    borderWidth: 1,
+    gap: 2,
+  },
+  sectionDividerBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1093,8 +1311,14 @@ const styles = StyleSheet.create({
   },
   goalHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  goalIconBox: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   deadlineRow: {
     flexDirection: 'row',
@@ -1104,9 +1328,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  iconBtn: {
+  actionIconBtn: {
+    width: 34,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: 1,
+  },
+  softActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 38,
+    paddingHorizontal: 8,
+    borderWidth: 1,
   },
   errorBox: {
     flexDirection: 'row',

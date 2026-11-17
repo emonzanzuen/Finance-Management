@@ -48,8 +48,15 @@ export function Button({ label, onPress, variant = 'primary', icon, loading = fa
         <ActivityIndicator color={palette.fg} />
       ) : (
         <>
-          {icon && <Feather name={icon} size={18} color={palette.fg} style={styles.icon} />}
-          <AppText variant="bodyStrong" color={palette.fg}>
+          {icon && <Feather name={icon} size={17} color={palette.fg} style={styles.icon} />}
+          <AppText
+            variant="bodyStrong"
+            color={palette.fg}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            style={{ flexShrink: 1, textAlign: 'center' }}
+          >
             {label}
           </AppText>
         </>

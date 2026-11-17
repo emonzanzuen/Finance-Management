@@ -6,10 +6,15 @@ import {
   type ApiSuccess,
   type MonthlyReportResponse,
   type ReportExportFormat,
+  type Transaction,
   type YearlyTrendResponse,
 } from '@/types/api';
+import { getMonthDateRange } from '@/utils/format';
+import { generateProfessionalPdfReport } from '@/utils/pdfReportGenerator';
+import { getProfile } from './auth';
 import { API_URL, apiClient, normalizeError } from './client';
 import { getToken } from './tokenStore';
+import { getTransactions } from './transactions';
 
 export async function getMonthlyReport(
   month: number,
@@ -52,6 +57,44 @@ export async function getYearlyTrend(year: number): Promise<YearlyTrendResponse>
   };
 }
 
+async function fetchAllMonthTransactionsForPdf(
+  month: number,
+  year: number,
+): Promise<Transaction[]> {
+  const { dateFrom, dateTo } = getMonthDateRange(month, year);
+  const all: Transaction[] = [];
+  let page = 1;
+  const limit = 100;
+
+  while (page <= 51) {
+    const res = await getTransactions({
+      page,
+      limit,
+      dateFrom,
+      dateTo,
+      sortBy: 'transactionDate',
+      sortOrder: 'asc',
+    });
+    all.push(...res.data);
+
+    if (all.length > 5000) {
+      throw new ApiError({
+        code: 'VALIDATION_ERROR',
+        message: 'Jumlah transaksi melebihi batas ekspor (maksimal 5.000 baris).',
+        status: 400,
+      });
+    }
+
+    const totalPages = res.meta?.totalPages ?? 1;
+    if (page >= totalPages || res.data.length === 0) {
+      break;
+    }
+    page += 1;
+  }
+
+  return all;
+}
+
 export async function exportReportFile(
   format: ReportExportFormat,
   month: number,
@@ -63,6 +106,65 @@ export async function exportReportFile(
     format === 'pdf'
       ? 'application/pdf'
       : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+  if (format === 'pdf') {
+    try {
+      const [report, transactions, profile] = await Promise.all([
+        getMonthlyReport(month, year),
+        fetchAllMonthTransactionsForPdf(month, year),
+        getProfile().catch(() => null),
+      ]);
+
+      const pdfBytes = generateProfessionalPdfReport({
+        month,
+        year,
+        userName: profile?.name,
+        userEmail: profile?.email,
+        report,
+        transactions,
+      });
+
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+          const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: mimeType });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+        }
+        return;
+      }
+
+      const targetFile = new File(Paths.cache, filename);
+      if (targetFile.exists) {
+        try {
+          targetFile.delete();
+        } catch {
+          // ignore cleanup error before writing fresh file
+        }
+      }
+      targetFile.create({ intermediates: true, overwrite: true });
+      targetFile.write(pdfBytes);
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(targetFile.uri, {
+          mimeType,
+          dialogTitle: filename,
+        });
+      }
+      return;
+    } catch (err) {
+      if (err instanceof ApiError) {
+        throw err;
+      }
+      throw normalizeError(err);
+    }
+  }
 
   if (Platform.OS === 'web') {
     const response = await apiClient.get<Blob>('/reports/export', {
@@ -119,4 +221,3 @@ export async function exportReportFile(
     throw normalizeError(err);
   }
 }
-

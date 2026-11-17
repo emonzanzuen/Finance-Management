@@ -1,5 +1,7 @@
-import { Alert, Pressable, StyleSheet, View, Platform } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather } from '@expo/vector-icons';
 import { AppText } from '@/components/ui/AppText';
 import { Badge } from '@/components/ui/Badge';
@@ -16,8 +18,8 @@ import {
 } from '@/context/PreferencesContext';
 import { useAuth } from '@/context/AuthContext';
 import { useCurrencies } from '@/hooks/useCurrencies';
-import { useDeleteReceiptConsent, usePostReceiptConsent } from '@/hooks/useReceipts';
 import { useRegisterDevice, useUnregisterDevice } from '@/hooks/useDevices';
+import { useDeleteReceiptConsent, usePostReceiptConsent } from '@/hooks/useReceipts';
 import { useTranslation } from '@/i18n/useTranslation';
 import { useTheme } from '@/theme/useTheme';
 import { CURRENCY_SYMBOLS } from '@/utils/format';
@@ -32,8 +34,6 @@ import {
   saveStoredPushToken,
   sendLocalNotification,
 } from '@/utils/notifications';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useState, useEffect } from 'react';
 
 const PRIMARY_CURRENCIES: CurrencyCode[] = ['IDR', 'USD', 'EUR'];
 
@@ -64,6 +64,9 @@ export default function SettingsScreen() {
   // Push Notification state
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
+
+  const softBorderColor = theme.isDark ? theme.colors.border : `${theme.colors.border}B8`;
+  const surfaceSubtle = theme.isDark ? theme.colors.surfaceAlt : `${theme.colors.surfaceAlt}90`;
 
   useEffect(() => {
     const loadPushSetting = async () => {
@@ -212,9 +215,9 @@ export default function SettingsScreen() {
     { value: 'dark', label: t('settings.dark'), icon: 'moon' },
   ];
 
-  const languageOptions: { value: Language; label: string }[] = [
-    { value: 'id', label: t('settings.lang_id') },
-    { value: 'en', label: t('settings.lang_en') },
+  const languageOptions: { value: Language; label: string; code: string }[] = [
+    { value: 'id', label: t('settings.lang_id'), code: 'ID' },
+    { value: 'en', label: t('settings.lang_en'), code: 'EN' },
   ];
 
   const sourceLabel =
@@ -235,80 +238,185 @@ export default function SettingsScreen() {
     : t('common.not_updated');
 
   return (
-    <Screen scroll>
-      {/* Header */}
-      <View style={[styles.header, { gap: theme.spacing.sm }]}>
+    <Screen scroll style={{ paddingBottom: theme.spacing.xxl * 1.5, gap: theme.spacing.md }}>
+      {/* Header — Aligned Soft Depth Back Button */}
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: theme.spacing.xs,
+            paddingBottom: theme.spacing.xs,
+            gap: theme.spacing.md,
+          },
+        ]}
+      >
         <Pressable
           accessibilityRole="button"
           onPress={() => router.back()}
-          style={[
+          style={({ pressed }) => [
             styles.backBtn,
             {
-              minWidth: theme.sizes.touchTarget,
-              minHeight: theme.sizes.touchTarget,
-              borderRadius: theme.radius.control,
+              width: 42,
+              height: 42,
+              borderRadius: 12,
+              backgroundColor: theme.colors.surface,
+              borderColor: softBorderColor,
+              opacity: pressed ? 0.8 : 1,
             },
           ]}
         >
-          <Feather name="arrow-left" size={22} color={theme.colors.text} />
+          <Feather name="arrow-left" size={20} color={theme.colors.text} />
         </Pressable>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, gap: 2 }}>
           <AppText variant="title">{t('settings.title')}</AppText>
-          <AppText variant="caption" muted>
+          <AppText variant="caption" muted numberOfLines={1}>
             {t('settings.subtitle')}
           </AppText>
         </View>
       </View>
 
-      {/* Theme Selection (SET-01) */}
-      <Card>
-        <AppText variant="subtitle">{t('settings.theme')}</AppText>
-        <View style={{ gap: theme.spacing.xs }}>
+      {/* Section 1: Theme Selection (SET-01) — Floating Island 3-Card Picker */}
+      <Card
+        style={{
+          padding: theme.spacing.lg,
+          gap: theme.spacing.md,
+          borderRadius: theme.radius.card + 2,
+          borderColor: softBorderColor,
+        }}
+      >
+        <View style={[styles.featureCardHeader, { gap: theme.spacing.md }]}>
+          <View
+            style={[
+              styles.featureIconBadge,
+              {
+                backgroundColor: `${theme.colors.primary}14`,
+                borderRadius: 12,
+              },
+            ]}
+          >
+            <Feather
+              name={theme.isDark ? 'moon' : 'sun'}
+              size={19}
+              color={theme.colors.primary}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppText variant="subtitle">{t('settings.theme')}</AppText>
+          </View>
+        </View>
+
+        <View
+          style={[
+            styles.islandTrack,
+            {
+              backgroundColor: surfaceSubtle,
+              borderColor: softBorderColor,
+              borderRadius: 16,
+              padding: 6,
+              gap: 6,
+            },
+          ]}
+        >
           {themeOptions.map((opt) => {
             const active = themePref === opt.value;
             return (
               <Pressable
                 key={opt.value}
                 accessibilityRole="button"
-                onPress={() => {
-                  setTheme(opt.value);
-                }}
-                style={[
-                  styles.optionRow,
+                onPress={() => setTheme(opt.value)}
+                style={({ pressed }) => [
+                  styles.themeIslandItem,
                   {
-                    minHeight: theme.sizes.touchTarget,
-                    borderRadius: theme.radius.control,
-                    borderWidth: 1,
-                    borderColor: active ? theme.colors.primary : theme.colors.border,
-                    backgroundColor: active ? `${theme.colors.primary}15` : theme.colors.surface,
-                    paddingHorizontal: theme.spacing.md,
-                    gap: theme.spacing.md,
+                    borderRadius: 12,
+                    borderWidth: active ? 1.5 : 1,
+                    borderColor: active ? theme.colors.primary : 'transparent',
+                    backgroundColor: active
+                      ? theme.colors.surface
+                      : pressed
+                        ? `${theme.colors.surface}80`
+                        : 'transparent',
+                    paddingVertical: theme.spacing.sm + 2,
+                    paddingHorizontal: theme.spacing.xs,
+                    gap: 6,
+                    shadowColor: '#0F172A',
+                    shadowOpacity: active && !theme.isDark ? 0.06 : 0,
+                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: 2 },
+                    elevation: active && !theme.isDark ? 2 : 0,
                   },
                 ]}
               >
-                <Feather
-                  name={opt.icon}
-                  size={18}
-                  color={active ? theme.colors.primary : theme.colors.textMuted}
-                />
+                <View
+                  style={[
+                    styles.themeIconCircle,
+                    {
+                      backgroundColor: active
+                        ? `${theme.colors.primary}16`
+                        : `${theme.colors.textMuted}12`,
+                      borderRadius: 10,
+                    },
+                  ]}
+                >
+                  <Feather
+                    name={opt.icon}
+                    size={16}
+                    color={active ? theme.colors.primary : theme.colors.textMuted}
+                  />
+                </View>
                 <AppText
-                  variant="bodyStrong"
+                  variant="caption"
                   color={active ? theme.colors.primary : theme.colors.text}
-                  style={{ flex: 1 }}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                  style={{ fontWeight: active ? '700' : '500', textAlign: 'center' }}
                 >
                   {opt.label}
                 </AppText>
-                {active ? <Feather name="check" size={18} color={theme.colors.primary} /> : null}
               </Pressable>
             );
           })}
         </View>
       </Card>
 
-      {/* Language Selection (SET-02) */}
-      <Card>
-        <AppText variant="subtitle">{t('settings.language')}</AppText>
-        <View style={[styles.row, { gap: theme.spacing.sm }]}>
+      {/* Section 2: Language Selection (SET-02) — Floating Island Dock */}
+      <Card
+        style={{
+          padding: theme.spacing.lg,
+          gap: theme.spacing.md,
+          borderRadius: theme.radius.card + 2,
+          borderColor: softBorderColor,
+        }}
+      >
+        <View style={[styles.featureCardHeader, { gap: theme.spacing.md }]}>
+          <View
+            style={[
+              styles.featureIconBadge,
+              {
+                backgroundColor: `${theme.colors.info}14`,
+                borderRadius: 12,
+              },
+            ]}
+          >
+            <Feather name="globe" size={19} color={theme.colors.info} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppText variant="subtitle">{t('settings.language')}</AppText>
+          </View>
+        </View>
+
+        <View
+          style={[
+            styles.islandTrack,
+            {
+              backgroundColor: surfaceSubtle,
+              borderColor: softBorderColor,
+              borderRadius: 14,
+              padding: 5,
+              gap: 6,
+            },
+          ]}
+        >
           {languageOptions.map((opt) => {
             const active = language === opt.value;
             return (
@@ -319,21 +427,53 @@ export default function SettingsScreen() {
                   setLanguage(opt.value);
                   showToast(t('common.language_changed', { language: opt.label }), 'info');
                 }}
-                style={[
+                style={({ pressed }) => [
                   styles.segmentBtn,
                   {
-                    minHeight: theme.sizes.touchTarget,
-                    borderRadius: theme.radius.control,
-                    borderWidth: 1,
-                    borderColor: active ? theme.colors.primary : theme.colors.border,
-                    backgroundColor: active ? theme.colors.primary : theme.colors.surface,
-                    paddingHorizontal: theme.spacing.md,
+                    minHeight: 44,
+                    borderRadius: 10,
+                    borderWidth: active ? 1.5 : 1,
+                    borderColor: active ? theme.colors.primary : 'transparent',
+                    backgroundColor: active
+                      ? theme.colors.surface
+                      : pressed
+                        ? `${theme.colors.surface}80`
+                        : 'transparent',
+                    paddingHorizontal: theme.spacing.sm,
+                    gap: 8,
+                    shadowColor: '#0F172A',
+                    shadowOpacity: active && !theme.isDark ? 0.05 : 0,
+                    shadowRadius: 6,
+                    shadowOffset: { width: 0, height: 2 },
+                    elevation: active && !theme.isDark ? 1 : 0,
                   },
                 ]}
               >
+                <View
+                  style={[
+                    styles.langCodeBadge,
+                    {
+                      backgroundColor: active
+                        ? theme.colors.primary
+                        : `${theme.colors.textMuted}18`,
+                      borderRadius: 6,
+                    },
+                  ]}
+                >
+                  <AppText
+                    variant="caption"
+                    color={active ? theme.colors.onPrimary : theme.colors.textMuted}
+                    style={{ fontSize: 10, fontWeight: '700' }}
+                  >
+                    {opt.code}
+                  </AppText>
+                </View>
                 <AppText
                   variant="bodyStrong"
-                  color={active ? theme.colors.onPrimary : theme.colors.text}
+                  color={active ? theme.colors.primary : theme.colors.text}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
                 >
                   {opt.label}
                 </AppText>
@@ -343,17 +483,48 @@ export default function SettingsScreen() {
         </View>
       </Card>
 
-      {/* Display Currency Selection (SET-03, CUR-01, CUR-02, CUR-04) */}
-      <Card>
-        <View style={{ gap: theme.spacing.xs }}>
-          <AppText variant="subtitle">{t('settings.currency')}</AppText>
-          <AppText variant="caption" muted>
-            {t('settings.currency_hint')}
-          </AppText>
+      {/* Section 3: Display Currency Selection (SET-03, CUR-01, CUR-02, CUR-04) */}
+      <Card
+        style={{
+          padding: theme.spacing.lg,
+          gap: theme.spacing.md,
+          borderRadius: theme.radius.card + 2,
+          borderColor: softBorderColor,
+        }}
+      >
+        <View style={[styles.featureCardHeader, { gap: theme.spacing.md }]}>
+          <View
+            style={[
+              styles.featureIconBadge,
+              {
+                backgroundColor: `${theme.colors.income}14`,
+                borderRadius: 12,
+              },
+            ]}
+          >
+            <Feather name="dollar-sign" size={19} color={theme.colors.income} />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <AppText variant="subtitle">{t('settings.currency')}</AppText>
+            <AppText variant="caption" muted>
+              {t('settings.currency_hint')}
+            </AppText>
+          </View>
         </View>
 
-        {/* P0 Primary Currencies: IDR, USD, EUR */}
-        <View style={[styles.row, { gap: theme.spacing.sm }]}>
+        {/* P0 Primary Currencies: IDR, USD, EUR in a Floating Island Dock */}
+        <View
+          style={[
+            styles.islandTrack,
+            {
+              backgroundColor: surfaceSubtle,
+              borderColor: softBorderColor,
+              borderRadius: 14,
+              padding: 5,
+              gap: 6,
+            },
+          ]}
+        >
           {PRIMARY_CURRENCIES.map((code) => {
             const active = currency === code;
             return (
@@ -364,20 +535,33 @@ export default function SettingsScreen() {
                   setCurrency(code);
                   showToast(t('common.currency_changed', { currency: code }), 'info');
                 }}
-                style={[
+                style={({ pressed }) => [
                   styles.segmentBtn,
                   {
-                    minHeight: theme.sizes.touchTarget,
-                    borderRadius: theme.radius.control,
-                    borderWidth: 1,
-                    borderColor: active ? theme.colors.primary : theme.colors.border,
-                    backgroundColor: active ? theme.colors.primary : theme.colors.surface,
+                    minHeight: 42,
+                    borderRadius: 10,
+                    borderWidth: active ? 1.5 : 1,
+                    borderColor: active ? theme.colors.primary : 'transparent',
+                    backgroundColor: active
+                      ? theme.colors.surface
+                      : pressed
+                        ? `${theme.colors.surface}80`
+                        : 'transparent',
+                    paddingHorizontal: 6,
+                    shadowColor: '#0F172A',
+                    shadowOpacity: active && !theme.isDark ? 0.05 : 0,
+                    shadowRadius: 6,
+                    shadowOffset: { width: 0, height: 2 },
+                    elevation: active && !theme.isDark ? 1 : 0,
                   },
                 ]}
               >
                 <AppText
                   variant="bodyStrong"
-                  color={active ? theme.colors.onPrimary : theme.colors.text}
+                  color={active ? theme.colors.primary : theme.colors.text}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
                 >
                   {code} ({CURRENCY_SYMBOLS[code].trim()})
                 </AppText>
@@ -387,7 +571,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* Additional Supported Currencies */}
-        <View style={[styles.currencyGrid, { gap: theme.spacing.xs }]}>
+        <View style={[styles.currencyGrid, { gap: 8 }]}>
           {CURRENCY_CODES.filter((c) => !PRIMARY_CURRENCIES.includes(c)).map((code) => {
             const active = currency === code;
             return (
@@ -398,22 +582,23 @@ export default function SettingsScreen() {
                   setCurrency(code);
                   showToast(t('common.currency_changed', { currency: code }), 'info');
                 }}
-                style={[
+                style={({ pressed }) => [
                   styles.currencyChip,
                   {
-                    minHeight: 40,
-                    borderRadius: theme.radius.control,
-                    borderWidth: 1,
-                    borderColor: active ? theme.colors.primary : theme.colors.border,
-                    backgroundColor: active ? theme.colors.primary : theme.colors.surfaceAlt,
+                    minHeight: 38,
+                    borderRadius: 10,
+                    borderWidth: active ? 1.5 : 1,
+                    borderColor: active ? theme.colors.primary : softBorderColor,
+                    backgroundColor: active ? `${theme.colors.primary}15` : surfaceSubtle,
                     paddingHorizontal: theme.spacing.md,
+                    opacity: pressed ? 0.85 : 1,
                   },
                 ]}
               >
                 <AppText
                   variant="caption"
-                  color={active ? theme.colors.onPrimary : theme.colors.text}
-                  style={{ fontWeight: '600' }}
+                  color={active ? theme.colors.primary : theme.colors.text}
+                  style={{ fontWeight: active ? '700' : '600' }}
                 >
                   {code} ({CURRENCY_SYMBOLS[code].trim()})
                 </AppText>
@@ -422,19 +607,54 @@ export default function SettingsScreen() {
           })}
         </View>
 
-        {/* Exchange Rates Info & Refresh */}
+        {/* Exchange Rates Info & Refresh — Recessed Flat-Layered Box */}
         <View
           style={[
             styles.ratesBox,
             {
-              backgroundColor: theme.colors.surfaceAlt,
-              borderRadius: theme.radius.control,
+              backgroundColor: surfaceSubtle,
+              borderColor: softBorderColor,
+              borderRadius: 14,
               padding: theme.spacing.md,
-              gap: theme.spacing.xs,
+              gap: theme.spacing.sm,
             },
           ]}
         >
-          <AppText variant="bodyStrong">{t('settings.exchange_rates')}</AppText>
+          <View style={styles.rateRow}>
+            <View style={[styles.row, { gap: 6 }]}>
+              <Feather name="activity" size={14} color={theme.colors.primary} />
+              <AppText variant="bodyStrong">{t('settings.exchange_rates')}</AppText>
+            </View>
+            <View
+              style={[
+                styles.sourcePill,
+                {
+                  backgroundColor:
+                    source === 'live'
+                      ? `${theme.colors.income}16`
+                      : `${theme.colors.textMuted}16`,
+                  borderRadius: theme.radius.full,
+                },
+              ]}
+            >
+              <AppText
+                variant="caption"
+                color={source === 'live' ? theme.colors.income : theme.colors.textMuted}
+                style={{ fontWeight: '700', fontSize: 11 }}
+              >
+                {sourceLabel}
+              </AppText>
+            </View>
+          </View>
+
+          <View
+            style={{
+              height: 1,
+              backgroundColor: softBorderColor,
+              opacity: 0.7,
+            }}
+          />
+
           {currency !== 'IDR' && currency !== 'USD' && currency !== 'EUR' ? (
             <View style={styles.rateRow}>
               <AppText variant="caption" muted>
@@ -448,56 +668,92 @@ export default function SettingsScreen() {
               </AppText>
             </View>
           ) : null}
+
           <View style={styles.rateRow}>
             <AppText variant="caption" muted>
               1 USD
             </AppText>
             <AppText variant="bodyStrong">
-              ≈ Rp {Math.round(1 / (rates.USD || 0.0000606)).toLocaleString(language === 'en' ? 'en-US' : 'id-ID')}
+              ≈ Rp{' '}
+              {Math.round(1 / (rates.USD || 0.0000606)).toLocaleString(
+                language === 'en' ? 'en-US' : 'id-ID',
+              )}
             </AppText>
           </View>
+
           <View style={styles.rateRow}>
             <AppText variant="caption" muted>
               1 EUR
             </AppText>
             <AppText variant="bodyStrong">
-              ≈ Rp {Math.round(1 / (rates.EUR || 0.0000558)).toLocaleString(language === 'en' ? 'en-US' : 'id-ID')}
+              ≈ Rp{' '}
+              {Math.round(1 / (rates.EUR || 0.0000558)).toLocaleString(
+                language === 'en' ? 'en-US' : 'id-ID',
+              )}
             </AppText>
           </View>
-          <AppText variant="caption" muted>
-            {t('settings.last_updated')}: {formattedUpdated} • {sourceLabel}
-          </AppText>
+
+          <View style={[styles.row, { gap: 6, marginTop: 2 }]}>
+            <Feather name="clock" size={12} color={theme.colors.textMuted} />
+            <AppText variant="caption" muted style={{ flex: 1 }}>
+              {t('settings.last_updated')}: {formattedUpdated}
+            </AppText>
+          </View>
         </View>
 
-        <Button
-          variant="secondary"
-          label={isFetching ? t('common.updating') : t('settings.refresh')}
-          loading={isFetching}
+        <Pressable
+          accessibilityRole="button"
+          disabled={isFetching}
           onPress={async () => {
             await refetch();
             showToast(t('settings.rates_refreshed'), 'success');
           }}
-        />
+          style={({ pressed }) => [
+            styles.softActionBtn,
+            {
+              minHeight: 42,
+              borderRadius: 12,
+              backgroundColor: `${theme.colors.primary}12`,
+              borderColor: `${theme.colors.primary}28`,
+              opacity: isFetching ? 0.6 : pressed ? 0.8 : 1,
+              gap: 8,
+            },
+          ]}
+        >
+          <Feather name="refresh-cw" size={15} color={theme.colors.primary} />
+          <AppText variant="bodyStrong" color={theme.colors.primary}>
+            {isFetching ? t('common.updating') : t('settings.refresh')}
+          </AppText>
+        </Pressable>
       </Card>
 
-      {/* Card 1 (Upgraded): Receipt Scan Consent (SCN-04, SCN-05) */}
-      <Card>
+      {/* Section 4: Receipt Scan Consent (SCN-04, SCN-05) */}
+      <Card
+        style={{
+          padding: theme.spacing.lg,
+          gap: theme.spacing.md,
+          borderRadius: theme.radius.card + 2,
+          borderColor: softBorderColor,
+          borderLeftWidth: 4,
+          borderLeftColor: hasConsent ? theme.colors.income : theme.colors.warning,
+        }}
+      >
         <View style={[styles.featureCardHeader, { gap: theme.spacing.md }]}>
           <View
             style={[
               styles.featureIconBadge,
               {
                 backgroundColor: hasConsent
-                  ? `${theme.colors.income}18`
-                  : `${theme.colors.primary}15`,
-                borderRadius: theme.radius.control,
+                  ? `${theme.colors.income}16`
+                  : `${theme.colors.warning}16`,
+                borderRadius: 12,
               },
             ]}
           >
             <Feather
               name="camera"
-              size={20}
-              color={hasConsent ? theme.colors.income : theme.colors.primary}
+              size={19}
+              color={hasConsent ? theme.colors.income : theme.colors.warning}
             />
           </View>
           <View style={{ flex: 1, gap: 2 }}>
@@ -520,8 +776,9 @@ export default function SettingsScreen() {
           style={[
             styles.featureInfoBox,
             {
-              backgroundColor: theme.colors.surfaceAlt,
-              borderRadius: theme.radius.control,
+              backgroundColor: surfaceSubtle,
+              borderColor: softBorderColor,
+              borderRadius: 12,
               padding: theme.spacing.md,
             },
           ]}
@@ -552,8 +809,17 @@ export default function SettingsScreen() {
         )}
       </Card>
 
-      {/* Card 2 (Upgraded): Push Notifications (NOT-04, NOT-05, NOT-06, SET-04) */}
-      <Card>
+      {/* Section 5: Push Notifications (NOT-04, NOT-05, NOT-06, SET-04) */}
+      <Card
+        style={{
+          padding: theme.spacing.lg,
+          gap: theme.spacing.md,
+          borderRadius: theme.radius.card + 2,
+          borderColor: softBorderColor,
+          borderLeftWidth: 4,
+          borderLeftColor: pushEnabled ? theme.colors.primary : theme.colors.border,
+        }}
+      >
         <Pressable
           accessibilityRole="switch"
           accessibilityState={{ checked: pushEnabled, busy: pushLoading }}
@@ -565,16 +831,14 @@ export default function SettingsScreen() {
             style={[
               styles.featureIconBadge,
               {
-                backgroundColor: pushEnabled
-                  ? `${theme.colors.primary}18`
-                  : theme.colors.surfaceAlt,
-                borderRadius: theme.radius.control,
+                backgroundColor: pushEnabled ? `${theme.colors.primary}16` : surfaceSubtle,
+                borderRadius: 12,
               },
             ]}
           >
             <Feather
               name="bell"
-              size={20}
+              size={19}
               color={pushEnabled ? theme.colors.primary : theme.colors.textMuted}
             />
           </View>
@@ -582,7 +846,11 @@ export default function SettingsScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs }}>
               <AppText variant="subtitle">{t('settings.push_notifications')}</AppText>
               <Badge
-                label={pushEnabled ? t('settings.push_status_active') : t('settings.push_status_inactive')}
+                label={
+                  pushEnabled
+                    ? t('settings.push_status_active')
+                    : t('settings.push_status_inactive')
+                }
                 variant={pushEnabled ? 'success' : 'neutral'}
               />
             </View>
@@ -619,8 +887,9 @@ export default function SettingsScreen() {
               styles.featureInfoBox,
               {
                 backgroundColor: `${theme.colors.info}12`,
-                borderRadius: theme.radius.control,
-                padding: theme.spacing.sm,
+                borderColor: `${theme.colors.info}28`,
+                borderRadius: 12,
+                padding: theme.spacing.sm + 2,
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: theme.spacing.sm,
@@ -635,28 +904,49 @@ export default function SettingsScreen() {
         ) : null}
 
         {pushEnabled ? (
-          <Button
-            variant="secondary"
-            icon="bell"
-            label={t('settings.push_test_btn')}
+          <Pressable
+            accessibilityRole="button"
             onPress={() => void handleTestNotification()}
-          />
+            style={({ pressed }) => [
+              styles.softActionBtn,
+              {
+                minHeight: 42,
+                borderRadius: 12,
+                backgroundColor: `${theme.colors.primary}12`,
+                borderColor: `${theme.colors.primary}28`,
+                opacity: pressed ? 0.8 : 1,
+                gap: 8,
+              },
+            ]}
+          >
+            <Feather name="bell" size={15} color={theme.colors.primary} />
+            <AppText variant="bodyStrong" color={theme.colors.primary}>
+              {t('settings.push_test_btn')}
+            </AppText>
+          </Pressable>
         ) : null}
       </Card>
 
-      {/* Card 3 (Upgraded): About FinManage (SET-05) */}
-      <Card>
+      {/* Section 6: About FinManage (SET-05) */}
+      <Card
+        style={{
+          padding: theme.spacing.lg,
+          gap: theme.spacing.md,
+          borderRadius: theme.radius.card + 2,
+          borderColor: softBorderColor,
+        }}
+      >
         <View style={[styles.featureCardHeader, { gap: theme.spacing.md }]}>
           <View
             style={[
               styles.featureIconBadge,
               {
-                backgroundColor: `${theme.colors.primary}15`,
-                borderRadius: theme.radius.control,
+                backgroundColor: `${theme.colors.primary}14`,
+                borderRadius: 12,
               },
             ]}
           >
-            <Feather name="shield" size={20} color={theme.colors.primary} />
+            <Feather name="shield" size={19} color={theme.colors.primary} />
           </View>
           <View style={{ flex: 1, gap: 2 }}>
             <AppText variant="subtitle">{t('settings.about')}</AppText>
@@ -671,8 +961,9 @@ export default function SettingsScreen() {
           style={[
             styles.featureInfoBox,
             {
-              backgroundColor: theme.colors.surfaceAlt,
-              borderRadius: theme.radius.control,
+              backgroundColor: surfaceSubtle,
+              borderColor: softBorderColor,
+              borderRadius: 12,
               padding: theme.spacing.md,
               gap: theme.spacing.sm,
             },
@@ -699,17 +990,37 @@ const styles = StyleSheet.create({
   backBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderWidth: 1,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  islandTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  themeIslandItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  themeIconCircle: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   segmentBtn: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  langCodeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -723,24 +1034,36 @@ const styles = StyleSheet.create({
   },
   ratesBox: {
     width: '100%',
+    borderWidth: 1,
   },
   rateRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  sourcePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  softActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
   featureCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   featureIconBadge: {
-    width: 44,
-    height: 44,
+    width: 42,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
   },
   featureInfoBox: {
     width: '100%',
+    borderWidth: 1,
   },
   switchTrack: {
     width: 52,
