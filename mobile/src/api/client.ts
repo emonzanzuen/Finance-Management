@@ -1,9 +1,16 @@
 import { AxiosError, create, isAxiosError, type AxiosInstance } from 'axios';
-import { ApiError, NETWORK_ERROR_CODE, type ApiErrorBody } from '@/types/api';
+import {
+  ApiError,
+  NETWORK_ERROR_CODE,
+  REQUEST_TIMEOUT_CODE,
+  type ApiErrorBody,
+} from '@/types/api';
 import { getToken } from './tokenStore';
 
 export const FIRST_REQUEST_TIMEOUT_MS = 60_000;
 export const DEFAULT_TIMEOUT_MS = 20_000;
+/** Receipt scanning calls a slow AI provider, so it needs a larger budget. */
+export const SCAN_TIMEOUT_MS = 45_000;
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
 
@@ -69,6 +76,13 @@ export function normalizeError(error: unknown): ApiError {
         status,
       });
     }
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+      return new ApiError({
+        code: REQUEST_TIMEOUT_CODE,
+        message: resolveLocalizedMessage(REQUEST_TIMEOUT_CODE, error.message),
+        status: 0,
+      });
+    }
     return new ApiError({
       code: NETWORK_ERROR_CODE,
       message: resolveLocalizedMessage(NETWORK_ERROR_CODE, error.message),
@@ -91,7 +105,8 @@ export const apiClient: AxiosInstance = create({
 });
 
 apiClient.interceptors.request.use(async (config) => {
-  config.timeout = firstRequestDone ? DEFAULT_TIMEOUT_MS : FIRST_REQUEST_TIMEOUT_MS;
+  config.timeout =
+    config.timeout ?? (firstRequestDone ? DEFAULT_TIMEOUT_MS : FIRST_REQUEST_TIMEOUT_MS);
   const token = await getToken();
   if (token) config.headers.set('Authorization', `Bearer ${token}`);
   return config;

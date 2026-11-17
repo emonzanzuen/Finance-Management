@@ -47,6 +47,9 @@ export default function ReportsScreen() {
   const [year, setYear] = useState(initialPeriod.year);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
+  const softBorderColor = theme.isDark ? theme.colors.border : `${theme.colors.border}B8`;
+  const surfaceSubtle = theme.isDark ? theme.colors.surfaceAlt : `${theme.colors.surfaceAlt}90`;
+
   const dateRange = useMemo(() => getMonthDateRange(month, year), [month, year]);
 
   const monthlyQuery = useMonthlyReport(month, year);
@@ -97,7 +100,8 @@ export default function ReportsScreen() {
     <Screen padded={false}>
       <ScrollView
         contentContainerStyle={{
-          padding: theme.spacing.lg,
+          paddingHorizontal: theme.spacing.lg,
+          paddingTop: theme.spacing.md,
           paddingBottom: theme.spacing.xxl * 2,
           gap: theme.spacing.md,
         }}
@@ -110,85 +114,121 @@ export default function ReportsScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Header with Export Buttons (EXP-01..05) */}
-        <View style={[styles.headerRow, { gap: theme.spacing.sm }]}>
+        {/* Header */}
+        <View style={[styles.headerRow, { gap: theme.spacing.md }]}>
           <Pressable
             accessibilityRole="button"
             onPress={() => router.back()}
-            style={[
+            style={({ pressed }) => [
               styles.backBtn,
               {
-                minWidth: theme.sizes.touchTarget,
-                minHeight: theme.sizes.touchTarget,
-                borderRadius: theme.radius.control,
+                width: 42,
+                height: 42,
+                borderRadius: 12,
+                backgroundColor: theme.colors.surface,
+                borderColor: softBorderColor,
+                opacity: pressed ? 0.8 : 1,
               },
             ]}
           >
-            <Feather name="arrow-left" size={22} color={theme.colors.text} />
+            <Feather name="arrow-left" size={20} color={theme.colors.text} />
           </Pressable>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, gap: 2 }}>
             <AppText variant="title">{t('reports.title')}</AppText>
-            <AppText variant="caption" muted>
+            <AppText variant="caption" muted numberOfLines={1}>
               {t('reports.subtitle')}
             </AppText>
           </View>
-          <View style={[styles.exportRow, { gap: theme.spacing.xs }]}>
+        </View>
+
+        {/* Month & Year Filter + Export Actions Card (REP-01, EXP-01..05) */}
+        <Card
+          style={{
+            padding: theme.spacing.md,
+            gap: theme.spacing.sm + 2,
+            borderRadius: theme.radius.card + 2,
+            borderColor: softBorderColor,
+          }}
+        >
+          <MonthYearPicker
+            month={month}
+            year={year}
+            onChange={(nextMonth, nextYear) => {
+              setMonth(nextMonth);
+              setYear(nextYear);
+            }}
+          />
+
+          <View
+            style={{
+              height: 1,
+              backgroundColor: softBorderColor,
+              opacity: 0.65,
+            }}
+          />
+
+          <View style={[styles.exportRow, { gap: theme.spacing.sm }]}>
             <Pressable
               accessibilityRole="button"
               disabled={exportMutation.isPending}
               onPress={() => void handleExport('pdf')}
-              style={[
+              style={({ pressed }) => [
                 styles.exportBtn,
                 {
-                  minHeight: 40,
-                  paddingHorizontal: theme.spacing.sm,
-                  borderRadius: theme.radius.control,
-                  borderColor: theme.colors.border,
-                  backgroundColor: theme.colors.surface,
-                  gap: 4,
-                  opacity: exportMutation.isPending ? 0.6 : 1,
+                  flex: 1,
+                  minHeight: 44,
+                  paddingHorizontal: theme.spacing.md,
+                  borderRadius: 12,
+                  borderColor: `${theme.colors.danger}30`,
+                  backgroundColor: `${theme.colors.danger}12`,
+                  gap: 8,
+                  opacity: exportMutation.isPending ? 0.6 : pressed ? 0.8 : 1,
                 },
               ]}
             >
-              <Feather name="download" size={14} color={theme.colors.danger} />
-              <AppText variant="caption" style={{ fontWeight: '600' }}>
+              <Feather name="file-text" size={16} color={theme.colors.danger} />
+              <AppText
+                variant="bodyStrong"
+                color={theme.colors.danger}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+              >
                 {t('reports.export_pdf')}
               </AppText>
             </Pressable>
+
             <Pressable
               accessibilityRole="button"
               disabled={exportMutation.isPending}
               onPress={() => void handleExport('xlsx')}
-              style={[
+              style={({ pressed }) => [
                 styles.exportBtn,
                 {
-                  minHeight: 40,
-                  paddingHorizontal: theme.spacing.sm,
-                  borderRadius: theme.radius.control,
-                  borderColor: theme.colors.border,
-                  backgroundColor: theme.colors.surface,
-                  gap: 4,
-                  opacity: exportMutation.isPending ? 0.6 : 1,
+                  flex: 1,
+                  minHeight: 44,
+                  paddingHorizontal: theme.spacing.md,
+                  borderRadius: 12,
+                  borderColor: `${theme.colors.income}30`,
+                  backgroundColor: `${theme.colors.income}12`,
+                  gap: 8,
+                  opacity: exportMutation.isPending ? 0.6 : pressed ? 0.8 : 1,
                 },
               ]}
             >
-              <Feather name="download" size={14} color={theme.colors.income} />
-              <AppText variant="caption" style={{ fontWeight: '600' }}>
+              <Feather name="download" size={16} color={theme.colors.income} />
+              <AppText
+                variant="bodyStrong"
+                color={theme.colors.income}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+              >
                 {t('reports.export_excel')}
               </AppText>
             </Pressable>
           </View>
-        </View>
-
-        {/* Month & Year Filter (REP-01) */}
-        <MonthYearPicker
-          month={month}
-          year={year}
-          onChange={(nextMonth, nextYear) => {
-            setMonth(nextMonth);
-            setYear(nextYear);
-          }}
-        />
+        </Card>
 
         {isLoading ? (
           <SkeletonList count={4} itemHeight={120} />
@@ -201,34 +241,88 @@ export default function ReportsScreen() {
           </Card>
         ) : report ? (
           <>
-            {/* Summary Card: Income, Expense, Net Difference (REP-02) */}
-            <Card>
+            {/* Summary Card: Income, Expense, Net Difference (REP-02) — 3 Equal Soft Metric Boxes */}
+            <Card
+              style={{
+                padding: theme.spacing.lg,
+                borderRadius: theme.radius.card + 2,
+                borderColor: softBorderColor,
+              }}
+            >
               <View style={[styles.summaryGrid, { gap: theme.spacing.sm }]}>
-                <View style={styles.summaryCol}>
-                  <AppText variant="caption" muted>
+                <View
+                  style={[
+                    styles.summaryCol,
+                    {
+                      backgroundColor: surfaceSubtle,
+                      borderColor: softBorderColor,
+                      borderRadius: 12,
+                      padding: theme.spacing.sm + 2,
+                      gap: 4,
+                    },
+                  ]}
+                >
+                  <AppText variant="caption" muted numberOfLines={1}>
                     {t('reports.income')}
                   </AppText>
-                  <AppText variant="bodyStrong" color={theme.colors.income}>
+                  <AppText
+                    variant="bodyStrong"
+                    color={theme.colors.income}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
+                  >
                     {formatAmount(report.income)}
                   </AppText>
                 </View>
-                <View style={styles.summaryCol}>
-                  <AppText variant="caption" muted>
+
+                <View
+                  style={[
+                    styles.summaryCol,
+                    {
+                      backgroundColor: surfaceSubtle,
+                      borderColor: softBorderColor,
+                      borderRadius: 12,
+                      padding: theme.spacing.sm + 2,
+                      gap: 4,
+                    },
+                  ]}
+                >
+                  <AppText variant="caption" muted numberOfLines={1}>
                     {t('reports.expense')}
                   </AppText>
-                  <AppText variant="bodyStrong" color={theme.colors.expense}>
+                  <AppText
+                    variant="bodyStrong"
+                    color={theme.colors.expense}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
+                  >
                     {formatAmount(report.expense)}
                   </AppText>
                 </View>
-                <View style={styles.summaryCol}>
-                  <AppText variant="caption" muted>
+
+                <View
+                  style={[
+                    styles.summaryCol,
+                    {
+                      backgroundColor: surfaceSubtle,
+                      borderColor: softBorderColor,
+                      borderRadius: 12,
+                      padding: theme.spacing.sm + 2,
+                      gap: 4,
+                    },
+                  ]}
+                >
+                  <AppText variant="caption" muted numberOfLines={1}>
                     {t('reports.difference')}
                   </AppText>
                   <AppText
                     variant="bodyStrong"
-                    color={
-                      report.difference < 0 ? theme.colors.danger : theme.colors.income
-                    }
+                    color={report.difference < 0 ? theme.colors.danger : theme.colors.income}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
                   >
                     {formatAmount(report.difference)}
                   </AppText>
@@ -237,8 +331,25 @@ export default function ReportsScreen() {
             </Card>
 
             {/* Pie Chart Expense by Category (REP-03) */}
-            <Card>
-              <AppText variant="subtitle">{t('reports.expense_by_category')}</AppText>
+            <Card
+              style={{
+                padding: theme.spacing.lg,
+                gap: theme.spacing.md,
+                borderRadius: theme.radius.card + 2,
+                borderColor: softBorderColor,
+              }}
+            >
+              <View style={[styles.cardHeader, { gap: theme.spacing.sm }]}>
+                <View
+                  style={[
+                    styles.chartIconBadge,
+                    { backgroundColor: `${theme.colors.expense}14`, borderRadius: 10 },
+                  ]}
+                >
+                  <Feather name="pie-chart" size={16} color={theme.colors.expense} />
+                </View>
+                <AppText variant="subtitle">{t('reports.expense_by_category')}</AppText>
+              </View>
               <CategoryPieChart
                 items={report.expenseByCategory}
                 emptyMessage={t('reports.no_expense_data')}
@@ -246,8 +357,25 @@ export default function ReportsScreen() {
             </Card>
 
             {/* Bar Chart Income by Category (REP-04) */}
-            <Card>
-              <AppText variant="subtitle">{t('reports.income_by_category')}</AppText>
+            <Card
+              style={{
+                padding: theme.spacing.lg,
+                gap: theme.spacing.md,
+                borderRadius: theme.radius.card + 2,
+                borderColor: softBorderColor,
+              }}
+            >
+              <View style={[styles.cardHeader, { gap: theme.spacing.sm }]}>
+                <View
+                  style={[
+                    styles.chartIconBadge,
+                    { backgroundColor: `${theme.colors.income}14`, borderRadius: 10 },
+                  ]}
+                >
+                  <Feather name="bar-chart-2" size={16} color={theme.colors.income} />
+                </View>
+                <AppText variant="subtitle">{t('reports.income_by_category')}</AppText>
+              </View>
               <CategoryBarChart
                 items={report.incomeByCategory}
                 emptyMessage={t('reports.no_income_data')}
@@ -255,10 +383,27 @@ export default function ReportsScreen() {
             </Card>
 
             {/* Line Chart 12-Month Trend (REP-05) */}
-            <Card>
-              <AppText variant="subtitle">
-                {t('reports.monthly_trend', { year })}
-              </AppText>
+            <Card
+              style={{
+                padding: theme.spacing.lg,
+                gap: theme.spacing.md,
+                borderRadius: theme.radius.card + 2,
+                borderColor: softBorderColor,
+              }}
+            >
+              <View style={[styles.cardHeader, { gap: theme.spacing.sm }]}>
+                <View
+                  style={[
+                    styles.chartIconBadge,
+                    { backgroundColor: `${theme.colors.primary}14`, borderRadius: 10 },
+                  ]}
+                >
+                  <Feather name="trending-up" size={16} color={theme.colors.primary} />
+                </View>
+                <AppText variant="subtitle">
+                  {t('reports.monthly_trend', { year })}
+                </AppText>
+              </View>
               <TrendLineChart
                 points={(trend?.months ?? []).map((m) => ({
                   month: m.month,
@@ -270,8 +415,25 @@ export default function ReportsScreen() {
             </Card>
 
             {/* Transactions of Selected Month (REP-06) */}
-            <Card>
-              <AppText variant="subtitle">{t('reports.transaction_details')}</AppText>
+            <Card
+              style={{
+                padding: theme.spacing.lg,
+                gap: theme.spacing.md,
+                borderRadius: theme.radius.card + 2,
+                borderColor: softBorderColor,
+              }}
+            >
+              <View style={[styles.cardHeader, { gap: theme.spacing.sm }]}>
+                <View
+                  style={[
+                    styles.chartIconBadge,
+                    { backgroundColor: `${theme.colors.info}14`, borderRadius: 10 },
+                  ]}
+                >
+                  <Feather name="list" size={16} color={theme.colors.info} />
+                </View>
+                <AppText variant="subtitle">{t('reports.transaction_details')}</AppText>
+              </View>
               {transactions.length === 0 ? (
                 <EmptyState icon="list" title={t('reports.no_data')} />
               ) : (
@@ -285,20 +447,24 @@ export default function ReportsScreen() {
                         key={tx.id}
                         accessibilityRole="button"
                         onPress={() => setSelectedTx(tx)}
-                        style={[
+                        style={({ pressed }) => [
                           styles.txRow,
                           {
-                            borderRadius: theme.radius.control,
-                            backgroundColor: theme.colors.surfaceAlt,
+                            borderRadius: 12,
+                            backgroundColor: surfaceSubtle,
+                            borderColor: softBorderColor,
+                            borderLeftWidth: 4,
+                            borderLeftColor: amountColor,
                             padding: theme.spacing.md,
                             gap: theme.spacing.sm,
+                            opacity: pressed ? 0.85 : 1,
                           },
                         ]}
                       >
-                        <View style={{ flex: 1, gap: theme.spacing.xs }}>
+                        <View style={{ flex: 1, gap: 4 }}>
                           <CategoryChip name={tx.category.name} color={tx.category.color} />
                           {tx.description ? (
-                            <AppText variant="body" numberOfLines={1}>
+                            <AppText variant="bodyStrong" numberOfLines={1}>
                               {tx.description}
                             </AppText>
                           ) : null}
@@ -352,6 +518,7 @@ const styles = StyleSheet.create({
   backBtn: {
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
   exportRow: {
     flexDirection: 'row',
@@ -369,10 +536,22 @@ const styles = StyleSheet.create({
   },
   summaryCol: {
     flex: 1,
+    borderWidth: 1,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chartIconBadge: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   txRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderWidth: 1,
   },
 });

@@ -38,6 +38,8 @@ export default function NotificationsScreen() {
   const markReadMutation = useMarkNotificationRead();
   const markAllReadMutation = useMarkAllNotificationsRead();
 
+  const softBorderColor = theme.isDark ? theme.colors.border : `${theme.colors.border}B8`;
+
   const items = useMemo(
     () => notificationsQuery.data?.pages.flatMap((p) => p.data) ?? [],
     [notificationsQuery.data],
@@ -124,33 +126,36 @@ export default function NotificationsScreen() {
 
   return (
     <Screen padded={false}>
-      {/* Header */}
+      {/* Header — Soft Depth Back Button */}
       <View
         style={{
           paddingHorizontal: theme.spacing.lg,
-          paddingTop: theme.spacing.lg,
+          paddingTop: theme.spacing.md,
           paddingBottom: theme.spacing.sm,
         }}
       >
-        <View style={[styles.headerRow, { gap: theme.spacing.sm }]}>
+        <View style={[styles.headerRow, { gap: theme.spacing.md }]}>
           <Pressable
             accessibilityRole="button"
             onPress={() => router.back()}
-            style={[
+            style={({ pressed }) => [
               styles.backBtn,
               {
-                minWidth: theme.sizes.touchTarget,
-                minHeight: theme.sizes.touchTarget,
-                borderRadius: theme.radius.control,
+                width: 42,
+                height: 42,
+                borderRadius: 12,
+                backgroundColor: theme.colors.surface,
+                borderColor: softBorderColor,
+                opacity: pressed ? 0.8 : 1,
               },
             ]}
           >
-            <Feather name="arrow-left" size={22} color={theme.colors.text} />
+            <Feather name="arrow-left" size={20} color={theme.colors.text} />
           </Pressable>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, gap: 2 }}>
             <AppText variant="title">{t('common.notifications')}</AppText>
             {unreadCount > 0 ? (
-              <AppText variant="caption" color={theme.colors.primary}>
+              <AppText variant="caption" color={theme.colors.primary} style={{ fontWeight: '600' }}>
                 {unreadCount} {t('common.new')}
               </AppText>
             ) : (
@@ -164,17 +169,21 @@ export default function NotificationsScreen() {
               accessibilityRole="button"
               disabled={markAllReadMutation.isPending}
               onPress={() => void handleMarkAllRead()}
-              style={[
+              style={({ pressed }) => [
                 styles.markAllBtn,
                 {
-                  minHeight: theme.sizes.touchTarget,
+                  minHeight: 40,
                   paddingHorizontal: theme.spacing.md,
-                  borderRadius: theme.radius.control,
-                  backgroundColor: `${theme.colors.primary}15`,
+                  borderRadius: 12,
+                  backgroundColor: `${theme.colors.primary}14`,
+                  borderColor: `${theme.colors.primary}28`,
+                  opacity: markAllReadMutation.isPending ? 0.6 : pressed ? 0.8 : 1,
+                  gap: 6,
                 },
               ]}
             >
-              <AppText variant="caption" color={theme.colors.primary} style={{ fontWeight: '600' }}>
+              <Feather name="check-circle" size={14} color={theme.colors.primary} />
+              <AppText variant="caption" color={theme.colors.primary} style={{ fontWeight: '700' }}>
                 {t('common.mark_all_read')}
               </AppText>
             </Pressable>
@@ -195,7 +204,8 @@ export default function NotificationsScreen() {
             data={items}
             keyExtractor={(item) => item.id}
             contentContainerStyle={{
-              gap: theme.spacing.sm,
+              gap: theme.spacing.sm + 2,
+              paddingTop: theme.spacing.xs,
               paddingBottom: theme.spacing.xxl * 2,
               flexGrow: 1,
             }}
@@ -237,13 +247,18 @@ export default function NotificationsScreen() {
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => void handlePressNotification(item)}
+                  style={({ pressed }) => [{ opacity: pressed ? 0.92 : 1 }]}
                 >
                   <Card
                     style={{
-                      borderColor: item.isRead ? theme.colors.border : info.color,
+                      padding: theme.spacing.md + 2,
+                      borderRadius: theme.radius.card,
+                      borderColor: item.isRead ? softBorderColor : `${info.color}60`,
+                      borderLeftWidth: 4,
+                      borderLeftColor: info.color,
                       backgroundColor: item.isRead
                         ? theme.colors.surface
-                        : `${info.color}0E`,
+                        : `${info.color}0C`,
                     }}
                   >
                     <View style={[styles.itemRow, { gap: theme.spacing.md }]}>
@@ -251,8 +266,8 @@ export default function NotificationsScreen() {
                         style={[
                           styles.iconCircle,
                           {
-                            backgroundColor: `${info.color}20`,
-                            borderRadius: theme.radius.full,
+                            backgroundColor: `${info.color}16`,
+                            borderRadius: 12,
                           },
                         ]}
                       >
@@ -275,10 +290,15 @@ export default function NotificationsScreen() {
                             />
                           ) : null}
                         </View>
-                        <AppText variant="body">{info.message}</AppText>
-                        <AppText variant="caption" muted>
-                          {formatRelativeTime(item.createdAt, t, language)}
+                        <AppText variant="body" style={{ lineHeight: 20 }}>
+                          {info.message}
                         </AppText>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                          <Feather name="clock" size={11} color={theme.colors.textMuted} />
+                          <AppText variant="caption" muted>
+                            {formatRelativeTime(item.createdAt, t, language)}
+                          </AppText>
+                        </View>
                       </View>
                     </View>
                   </Card>
@@ -300,10 +320,13 @@ const styles = StyleSheet.create({
   backBtn: {
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
   markAllBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
   itemRow: {
     flexDirection: 'row',

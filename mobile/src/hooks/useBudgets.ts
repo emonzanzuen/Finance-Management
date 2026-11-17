@@ -57,7 +57,10 @@ export function useTopUpBudget() {
     mutationFn: ({ id, input }: { id: string; input: TopUpBudgetInput }) =>
       topUpBudget(id, input),
     onSuccess: async () => {
-      await invalidateAfterBudgetMutation(queryClient);
+      await Promise.all([
+        invalidateAfterBudgetMutation(queryClient),
+        queryClient.invalidateQueries({ queryKey: ['savings'] }),
+      ]);
     },
   });
 }

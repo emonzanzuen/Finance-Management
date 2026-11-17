@@ -20,17 +20,24 @@ export function Screen({ children, scroll = false, padded = true, style }: Props
     paddingTop: insets.top,
   };
   const content: ViewStyle = padded
-    ? { padding: theme.spacing.lg, gap: theme.spacing.lg, ...style }
+    ? { flex: 1, padding: theme.spacing.lg, gap: theme.spacing.lg, ...style }
     : { flex: 1, ...style };
 
   if (scroll) {
     return (
       <View style={container}>
-        <ScrollView contentContainerStyle={content} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={{ padding: padded ? theme.spacing.lg : 0, gap: padded ? theme.spacing.lg : 0, ...style }}
+          keyboardShouldPersistTaps="handled"
+        >
           {children}
         </ScrollView>
       </View>
     );
   }
-  return <View style={[container, content]}>{children}</View>;
+  return (
+    <View style={container}>
+      <View style={content}>{children}</View>
+    </View>
+  );
 }

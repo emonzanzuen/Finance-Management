@@ -1,11 +1,16 @@
 import type { ApiSuccess, DashboardSummaryResponse } from '@/types/api';
 import { apiClient } from './client';
 
+type RawDashboardSummary = DashboardSummaryResponse & {
+  totalSaved?: number;
+  savings?: number;
+};
+
 export async function getDashboardSummary(
   month: number,
   year: number,
 ): Promise<DashboardSummaryResponse> {
-  const response = await apiClient.get<ApiSuccess<DashboardSummaryResponse>>('/dashboard/summary', {
+  const response = await apiClient.get<ApiSuccess<RawDashboardSummary>>('/dashboard/summary', {
     params: { month, year },
   });
   const d = response.data.data;
@@ -14,7 +19,7 @@ export async function getDashboardSummary(
     balance: Number(d.balance ?? 0),
     income: Number(d.income ?? 0),
     expense: Number(d.expense ?? 0),
-    totalSavings: Number(d.totalSavings ?? 0),
+    totalSavings: Number(d.totalSavings ?? d.totalSaved ?? d.savings ?? 0),
     expenseByCategory: (d.expenseByCategory ?? []).map((item) => ({
       ...item,
       amount: Number(item.amount ?? 0),

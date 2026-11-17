@@ -20,6 +20,8 @@ import {
 import { setUnauthorizedHandler } from '@/api/client';
 import { getHealth } from '@/api/health';
 import { clearToken, loadToken, saveToken } from '@/api/tokenStore';
+import { unregisterDevice } from '@/api/devices';
+import { clearStoredPushToken, getStoredPushToken } from '@/utils/notifications';
 import type {
   AuthUser,
   ChangePasswordInput,
@@ -44,6 +46,7 @@ type AuthValue = {
   updateProfile: (input: UpdateProfileInput) => Promise<UserProfile>;
   signIn: (token: string, user: AuthUser) => Promise<void>;
   signOut: () => Promise<void>;
+  clearSession: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
 
@@ -150,25 +153,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const revokeStoredPushToken = useCallback(async () => {
+    try {
+      const token = await getStoredPushToken();
+      if (!token) return;
+      await unregisterDevice(token);
+      await clearStoredPushToken();
+    } catch {
+      // Best-effort: a failed device revocation must never block logout.
+    }
+  }, []);
+
   const logout = useCallback(async () => {
+    // Revoke the push token while the JWT is still valid, before clearing it.
+    await revokeStoredPushToken();
     try {
       await logoutUser();
     } catch {
       // Best-effort server session revocation; local cleanup always runs
-    } finally {
-      await clearLocalSession();
     }
-  }, [clearLocalSession]);
+    await clearLocalSession();
+  }, [clearLocalSession, revokeStoredPushToken]);
 
   const logoutAll = useCallback(async () => {
+    // Revoke the push token while the JWT is still valid, before clearing it.
+    await revokeStoredPushToken();
     try {
       await logoutAllUsers();
     } catch {
       // Best-effort server session revocation across all devices; local cleanup always runs
-    } finally {
-      await clearLocalSession();
     }
-  }, [clearLocalSession]);
+    await clearLocalSession();
+  }, [clearLocalSession, revokeStoredPushToken]);
 
   const changePassword = useCallback(async (input: ChangePasswordInput) => {
     const res = await changePasswordApi(input);
@@ -224,6 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateProfile,
       signIn,
       signOut: logout,
+      clearSession: clearLocalSession,
       refreshProfile,
     }),
     [
@@ -238,6 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       changePassword,
       updateProfile,
       signIn,
+      clearLocalSession,
       refreshProfile,
     ],
   );

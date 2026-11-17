@@ -2,6 +2,7 @@ import type {
   ApiSuccess,
   CreateSavingsDepositInput,
   CreateSavingsGoalInput,
+  CreateSavingsWithdrawalInput,
   SavingsDepositResponse,
   SavingsGoal,
   SavingsGoalDetail,
@@ -76,6 +77,21 @@ export async function createSavingsDeposit(
       ...d.entry,
       amount: Number(d.entry?.amount ?? input.amount),
     },
+    goal: normalizeGoal(d.goal),
+  };
+}
+
+export async function createSavingsWithdrawal(
+  goalId: string,
+  input: CreateSavingsWithdrawalInput,
+): Promise<SavingsDepositResponse> {
+  const response = await apiClient.post<ApiSuccess<SavingsDepositResponse>>(
+    `/savings-goals/${goalId}/withdrawals`,
+    input,
+  );
+  const d = response.data.data;
+  return {
+    entry: { ...d.entry, amount: Number(d.entry?.amount ?? input.amount) },
     goal: normalizeGoal(d.goal),
   };
 }
