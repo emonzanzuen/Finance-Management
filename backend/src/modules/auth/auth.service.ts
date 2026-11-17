@@ -22,6 +22,10 @@ const COMMON_PASSWORDS = new Set([
 ]);
 let dummyHash: Promise<string> | undefined;
 
+export function hashPassword(password: string): Promise<string> {
+  return argon2.hash(password, ARGON_OPTIONS);
+}
+
 export interface PublicUser {
   id: string;
   name: string;
@@ -67,7 +71,7 @@ function mapPrismaConflict(error: unknown): never {
 
 export async function register(input: RegisterInput, userAgent: string | undefined): Promise<AuthResult> {
   validatePassword(input.password, input.email);
-  const passwordHash = await argon2.hash(input.password, ARGON_OPTIONS);
+  const passwordHash = await hashPassword(input.password);
   const now = new Date();
   const expiresAt = new Date(now.getTime() + SESSION_MS);
   const sessionId = randomUUID();
@@ -158,7 +162,7 @@ export async function changePassword(
     throw new AppError('INVALID_CREDENTIALS', 401, 'Email atau password tidak valid.');
   }
   validatePassword(input.newPassword, user.email);
-  const passwordHash = await argon2.hash(input.newPassword, ARGON_OPTIONS);
+  const passwordHash = await hashPassword(input.newPassword);
   const now = new Date();
   const sessionId = randomUUID();
   await prisma.$transaction(async (tx) => {

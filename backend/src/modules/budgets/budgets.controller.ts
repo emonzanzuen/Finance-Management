@@ -28,5 +28,5 @@ export async function deleteBudgetController(req: Request, res: Response): Promi
 export async function topUpBudgetController(req: Request, res: Response): Promise<void> {
   const id = budgetIdSchema.parse(req.params.id);
   const input = topUpBudgetSchema.parse(req.body);
-  res.status(200).json({ data: await topUpBudget(authenticatedUserId(req), id, input.amount) });
+  res.status(200).json({ data: await topUpBudget(authenticatedUserId(req), id, input) });
 }

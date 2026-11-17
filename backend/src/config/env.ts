@@ -58,6 +58,8 @@ const envSchema = z
     JWT_EXPIRES_IN: z.preprocess(emptyToUndefined, z.string().min(1).default('7d')),
     GEMINI_API_KEY: optionalString,
     GEMINI_MODEL: optionalString,
+    EMAIL_API_KEY: optionalString,
+    EMAIL_FROM: z.preprocess(emptyToUndefined, z.string().min(1).default('FinManage <onboarding@resend.dev>')),
     SCAN_ENABLED: booleanFromString,
     SCAN_DAILY_LIMIT: intFromString(10, 0, 1000),
     CORS_ORIGINS: z.preprocess(

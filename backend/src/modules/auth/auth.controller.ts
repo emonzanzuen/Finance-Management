@@ -4,6 +4,8 @@ import { prisma } from '../../lib/prisma';
 import { authenticatedUserId } from '../../middleware/auth';
 import { changePassword, login, logoutAll, register } from './auth.service';
 import { changePasswordSchema, loginSchema, registerSchema } from './auth.schema';
+import { forgotPasswordSchema, resetPasswordSchema } from './auth.passwordReset.schema';
+import { forgotPassword, resetPassword, resendEmailSender, type EmailSender } from './auth.passwordReset.service';
 
 function parseUserAgent(req: Request): string | undefined {
   const value = req.header('user-agent');
@@ -42,5 +44,15 @@ export async function changePasswordController(req: Request, res: Response): Pro
 
 export async function logoutAllController(req: Request, res: Response): Promise<void> {
   await logoutAll(authenticatedUserId(req));
+  res.status(204).end();
+}
+
+export async function forgotPasswordController(req: Request, res: Response, sender: EmailSender = resendEmailSender): Promise<void> {
+  await forgotPassword(forgotPasswordSchema.parse(req.body), sender, req.log);
+  res.status(200).json({ data: { message: 'Jika email terdaftar, kode verifikasi akan dikirim.' } });
+}
+
+export async function resetPasswordController(req: Request, res: Response): Promise<void> {
+  await resetPassword(resetPasswordSchema.parse(req.body));
   res.status(204).end();
 }

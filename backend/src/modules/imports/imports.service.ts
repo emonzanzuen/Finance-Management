@@ -4,6 +4,7 @@ import { currentWibMonth, wibToday } from '../../lib/dates';
 import { AppError } from '../../lib/errors';
 import { DEFAULT_CATEGORIES } from '../../lib/defaultCategories';
 import { prisma } from '../../lib/prisma';
+import { schedulePushNotifications, type PushEvent } from '../../lib/pushNotifications';
 import { refreshBudgetNotifications } from '../transactions/transactions.service';
 import type { ImportCommitInput, ImportRow } from './imports.schema';
 import { previewImport } from './imports.parser';
@@ -49,7 +50,7 @@ function duplicateKey(row: Pick<ImportRow, 'type' | 'amount' | 'transactionDate'
 }
 
 export async function commitTransactionsImport(userId: string, input: ImportCommitInput) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const duplicateCandidates = input.rows.map((row) => ({
       userId,
       type: row.type,
@@ -130,7 +131,13 @@ export async function commitTransactionsImport(userId: string, input: ImportComm
       if (row.type === 'expense') refresh.set(`${category.id}:${row.transactionDate.slice(0, 7)}`, { categoryId: category.id, date: transactionDate });
     }
     if (rowsToCreate.length) await tx.transaction.createMany({ data: rowsToCreate });
-    for (const item of refresh.values()) await refreshBudgetNotifications(tx, userId, item.categoryId, item.date);
-    return { imported: rowsToCreate.length, skipped, createdCategories: [...createdCategories].sort((a, b) => a.localeCompare(b)) };
+    const pushEvents: PushEvent[] = [];
+    for (const item of refresh.values()) pushEvents.push(...await refreshBudgetNotifications(tx, userId, item.categoryId, item.date));
+    return {
+      data: { imported: rowsToCreate.length, skipped, createdCategories: [...createdCategories].sort((a, b) => a.localeCompare(b)) },
+      pushEvents,
+    };
   });
+  schedulePushNotifications(result.pushEvents);
+  return result.data;
 }

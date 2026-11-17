@@ -96,10 +96,16 @@ export async function getDashboardSummary(userId: string, requestedMonth?: numbe
   const insights: Array<Record<string, string | number>> = [];
   if (!previousSums.expense.isZero()) {
     const change = monthSums.expense.sub(previousSums.expense).div(previousSums.expense).mul(100).toDecimalPlaces(1);
-    insights.push({ type: 'expense_change', direction: change.gte(0) ? 'up' : 'down', percent: Math.abs(change.toNumber()) });
+    insights.push({ type: 'expense_change', direction: change.isZero() ? 'same' : change.gt(0) ? 'up' : 'down', percent: Math.abs(change.toNumber()) });
   }
   if (expenseByCategory[0]) {
-    insights.push({ type: 'top_category', categoryId: expenseByCategory[0].categoryId, name: expenseByCategory[0].name, amount: expenseByCategory[0].amount });
+    insights.push({
+      type: 'top_category',
+      categoryId: expenseByCategory[0].categoryId,
+      name: expenseByCategory[0].name,
+      amount: expenseByCategory[0].amount,
+      percentage: expenseByCategory[0].percentage,
+    });
   }
   const budgetIds = budgets.map((budget) => budget.categoryId);
   const budgetSpent = budgetIds.length ? await prisma.transaction.groupBy({

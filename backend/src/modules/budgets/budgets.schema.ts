@@ -14,6 +14,10 @@ export const createBudgetSchema = z.object({
   budgetAmount,
 }).strict();
 export const updateBudgetSchema = z.object({ budgetAmount }).strict();
-export const topUpBudgetSchema = z.object({ amount: budgetAmount, source: z.literal('manual') }).strict();
+export const topUpBudgetSchema = z.discriminatedUnion('source', [
+  z.object({ amount: budgetAmount, source: z.literal('manual') }).strict(),
+  z.object({ amount: budgetAmount, source: z.literal('savings'), goalId: z.string().uuid() }).strict(),
+]);
 
 export type CreateBudgetInput = z.infer<typeof createBudgetSchema>;
+export type TopUpBudgetInput = z.infer<typeof topUpBudgetSchema>;
