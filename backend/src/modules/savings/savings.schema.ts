@@ -24,6 +24,9 @@ export const depositSchema = z.object({
   note: z.string().trim().max(255).nullable().optional(),
 }).strict();
 
+export const withdrawalSchema = depositSchema;
+
 export type CreateGoalInput = z.infer<typeof createGoalSchema>;
 export type UpdateGoalInput = z.infer<typeof updateGoalSchema>;
 export type DepositInput = z.infer<typeof depositSchema>;
+export type WithdrawalInput = z.infer<typeof withdrawalSchema>;

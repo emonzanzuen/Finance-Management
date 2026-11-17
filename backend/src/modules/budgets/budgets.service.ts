@@ -1,9 +1,9 @@
 import { Prisma } from '@prisma/client';
 import { AppError } from '../../lib/errors';
-import { currentWibMonth, monthRange } from '../../lib/dates';
+import { currentWibMonth, monthRange, wibToday } from '../../lib/dates';
 import { amountToDecimal, decimalToAmount, ratioPercent } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
-import type { CreateBudgetInput } from './budgets.schema';
+import type { CreateBudgetInput, TopUpBudgetInput } from './budgets.schema';
 
 const notFound = () => new AppError('NOT_FOUND', 404, 'Sumber daya tidak ditemukan.');
 
@@ -112,7 +112,7 @@ export async function deleteBudget(userId: string, id: string): Promise<void> {
   if (result.count !== 1) throw notFound();
 }
 
-export async function topUpBudget(userId: string, id: string, amount: number) {
+export async function topUpBudget(userId: string, id: string, input: TopUpBudgetInput) {
   return prisma.$transaction(async (tx) => {
     const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
       SELECT id FROM budgets WHERE id = ${id}::uuid AND user_id = ${userId}::uuid FOR UPDATE
@@ -123,7 +123,40 @@ export async function topUpBudget(userId: string, id: string, amount: number) {
       include: { category: { select: { id: true, name: true, color: true } } },
     });
     if (!budget) throw notFound();
-    const nextAmount = budget.budgetAmount.add(amount);
+    let nextAmount = budget.budgetAmount.add(input.amount);
+    if (input.source === 'savings') {
+      await tx.$queryRaw`SELECT id FROM savings_goals WHERE id = ${input.goalId}::uuid AND user_id = ${userId}::uuid FOR UPDATE`;
+      const goal = await tx.savingsGoal.findFirst({ where: { id: input.goalId, userId } });
+      if (!goal) throw notFound();
+      const groups = await tx.savingsDeposit.groupBy({
+        by: ['entryType'], where: { goalId: goal.id, userId }, _sum: { amount: true },
+      });
+      const saved = groups.reduce((sum, group) => {
+        const value = group._sum.amount ?? new Prisma.Decimal(0);
+        return group.entryType === 'deposit' ? sum.add(value) : sum.sub(value);
+      }, new Prisma.Decimal(0));
+      const amount = amountToDecimal(input.amount);
+      if (amount.gt(saved)) {
+        throw new AppError('TOPUP_EXCEEDS_SAVED', 400, 'Nominal alih dana melebihi jumlah tabungan.', { savedAmount: decimalToAmount(saved) });
+      }
+      const nextSaved = saved.sub(amount);
+      await tx.savingsDeposit.create({
+        data: {
+          goalId: goal.id,
+          userId,
+          entryType: 'withdrawal',
+          amount,
+          depositDate: new Date(`${wibToday()}T00:00:00.000Z`),
+          note: 'Alih dana ke budget',
+        },
+      });
+      const goalUpdate = await tx.savingsGoal.updateMany({
+        where: { id: goal.id, userId },
+        data: { completedAt: nextSaved.gte(goal.targetAmount) ? goal.completedAt : null },
+      });
+      if (goalUpdate.count !== 1) throw notFound();
+      nextAmount = budget.budgetAmount.add(amount);
+    }
     if (nextAmount.gt(999_999_999_999)) {
       throw new AppError('VALIDATION_ERROR', 400, 'Total budget melebihi batas nominal.');
     }

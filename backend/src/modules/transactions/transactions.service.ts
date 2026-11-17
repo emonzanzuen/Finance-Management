@@ -3,6 +3,7 @@ import { AppError } from '../../lib/errors';
 import { dateOnly, monthRange } from '../../lib/dates';
 import { amountToDecimal, decimalToAmount, ratioPercent } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
+import { schedulePushNotifications, type PushEvent } from '../../lib/pushNotifications';
 import type { CreateTransactionInput, ListTransactionsQuery, UpdateTransactionInput } from './transactions.schema';
 
 const NOT_FOUND = () => new AppError('NOT_FOUND', 404, 'Sumber daya tidak ditemukan.');
@@ -67,7 +68,7 @@ export async function getTransaction(userId: string, id: string) {
   return transactionResponse(item);
 }
 
-export async function refreshBudgetNotifications(tx: Prisma.TransactionClient, userId: string, categoryId: string, date: Date): Promise<void> {
+export async function refreshBudgetNotifications(tx: Prisma.TransactionClient, userId: string, categoryId: string, date: Date): Promise<PushEvent[]> {
   const month = date.getUTCMonth() + 1;
   const year = date.getUTCFullYear();
   const { start, end } = monthRange(month, year);
@@ -75,7 +76,7 @@ export async function refreshBudgetNotifications(tx: Prisma.TransactionClient, u
     where: { userId, categoryId, month, year },
     include: { category: { select: { name: true } } },
   });
-  if (!budgets.length) return;
+  if (!budgets.length) return [];
   const aggregate = await tx.transaction.aggregate({
     where: { userId, categoryId, type: 'expense', transactionDate: { gte: start, lt: end } },
     _sum: { amount: true },
@@ -101,11 +102,17 @@ export async function refreshBudgetNotifications(tx: Prisma.TransactionClient, u
       });
     }
   }
-  if (rows.length) await tx.notification.createMany({ data: rows, skipDuplicates: true });
+  if (!rows.length) return [];
+  const created = await tx.notification.createManyAndReturn({
+    data: rows,
+    skipDuplicates: true,
+    select: { userId: true, type: true },
+  });
+  return created.map(({ userId: ownerId, type }) => ({ userId: ownerId, type }));
 }
 
 export async function createTransaction(userId: string, input: CreateTransactionInput) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     await ownedCategory(tx, userId, input.categoryId, input.type);
     const item = await tx.transaction.create({
       data: {
@@ -118,15 +125,17 @@ export async function createTransaction(userId: string, input: CreateTransaction
       },
       include: { category: { select: { id: true, name: true, color: true } } },
     });
-    if (input.type === 'expense') {
-      await refreshBudgetNotifications(tx, userId, input.categoryId, item.transactionDate);
-    }
-    return transactionResponse(item);
+    const pushEvents = input.type === 'expense'
+      ? await refreshBudgetNotifications(tx, userId, input.categoryId, item.transactionDate)
+      : [];
+    return { data: transactionResponse(item), pushEvents };
   });
+  schedulePushNotifications(result.pushEvents);
+  return result.data;
 }
 
 export async function updateTransaction(userId: string, id: string, input: UpdateTransactionInput) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const current = await tx.transaction.findFirst({ where: { id, userId } });
     if (!current) throw NOT_FOUND();
     const nextType = input.type ?? current.type;
@@ -147,10 +156,13 @@ export async function updateTransaction(userId: string, id: string, input: Updat
       where: { id, userId },
       include: { category: { select: { id: true, name: true, color: true } } },
     });
-    if (current.type === 'expense') await refreshBudgetNotifications(tx, userId, current.categoryId, current.transactionDate);
-    if (item.type === 'expense') await refreshBudgetNotifications(tx, userId, item.categoryId, item.transactionDate);
-    return transactionResponse(item);
+    const pushEvents: PushEvent[] = [];
+    if (current.type === 'expense') pushEvents.push(...await refreshBudgetNotifications(tx, userId, current.categoryId, current.transactionDate));
+    if (item.type === 'expense') pushEvents.push(...await refreshBudgetNotifications(tx, userId, item.categoryId, item.transactionDate));
+    return { data: transactionResponse(item), pushEvents };
   });
+  schedulePushNotifications(result.pushEvents);
+  return result.data;
 }
 
 export async function deleteTransaction(userId: string, id: string): Promise<void> {

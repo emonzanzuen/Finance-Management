@@ -3,7 +3,8 @@ import { AppError } from '../../lib/errors';
 import { dateOnly } from '../../lib/dates';
 import { amountToDecimal, decimalToAmount, ratioPercent } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
-import type { CreateGoalInput, DepositInput, UpdateGoalInput } from './savings.schema';
+import { schedulePushNotifications, type PushEvent } from '../../lib/pushNotifications';
+import type { CreateGoalInput, DepositInput, UpdateGoalInput, WithdrawalInput } from './savings.schema';
 
 const notFound = () => new AppError('NOT_FOUND', 404, 'Sumber daya tidak ditemukan.');
 
@@ -125,7 +126,7 @@ export async function deleteGoal(userId: string, id: string): Promise<void> {
 }
 
 export async function addDeposit(userId: string, id: string, input: DepositInput) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM savings_goals WHERE id = ${id}::uuid AND user_id = ${userId}::uuid FOR UPDATE`;
     const goal = await tx.savingsGoal.findFirst({ where: { id, userId } });
     if (!goal) throw notFound();
@@ -151,12 +152,12 @@ export async function addDeposit(userId: string, id: string, input: DepositInput
     });
     const nextSaved = saved.add(amount);
     const completedAt = nextSaved.gte(goal.targetAmount) ? new Date() : null;
-    const updatedGoal = await tx.savingsGoal.update({
-      where: { id },
-      data: { completedAt },
-    });
+    const updatedCount = await tx.savingsGoal.updateMany({ where: { id, userId }, data: { completedAt } });
+    if (updatedCount.count !== 1) throw notFound();
+    const updatedGoal = await tx.savingsGoal.findFirstOrThrow({ where: { id, userId } });
+    const pushEvents: PushEvent[] = [];
     if (completedAt) {
-      await tx.notification.createMany({
+      const notifications = await tx.notification.createManyAndReturn({
         data: [{
           userId,
           type: 'goal_completed',
@@ -164,8 +165,50 @@ export async function addDeposit(userId: string, id: string, input: DepositInput
           dedupeKey: `goal:${goal.id}:completed`,
         }],
         skipDuplicates: true,
+        select: { userId: true, type: true },
       });
+      pushEvents.push(...notifications.map(({ userId: ownerId, type }) => ({ userId: ownerId, type })));
     }
+    return {
+      data: {
+        entry: { id: entry.id, entryType: entry.entryType, amount: decimalToAmount(entry.amount), depositDate: dateOnly(entry.depositDate), note: entry.note },
+        goal: summarizeGoal(updatedGoal, nextSaved),
+      },
+      pushEvents,
+    };
+  });
+  schedulePushNotifications(result.pushEvents);
+  return result.data;
+}
+
+export async function withdrawSavings(userId: string, id: string, input: WithdrawalInput) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM savings_goals WHERE id = ${id}::uuid AND user_id = ${userId}::uuid FOR UPDATE`;
+    const goal = await tx.savingsGoal.findFirst({ where: { id, userId } });
+    if (!goal) throw notFound();
+    const groups = await tx.savingsDeposit.groupBy({
+      by: ['entryType'], where: { goalId: id, userId }, _sum: { amount: true },
+    });
+    const saved = savedFromGroups(groups);
+    const amount = amountToDecimal(input.amount);
+    if (amount.gt(saved)) {
+      throw new AppError('WITHDRAWAL_EXCEEDS_SAVED', 400, 'Penarikan melebihi jumlah tabungan.', { savedAmount: decimalToAmount(saved) });
+    }
+    const entry = await tx.savingsDeposit.create({
+      data: {
+        goalId: id,
+        userId,
+        entryType: 'withdrawal',
+        amount,
+        depositDate: new Date(`${input.depositDate}T00:00:00.000Z`),
+        note: input.note ?? null,
+      },
+    });
+    const nextSaved = saved.sub(amount);
+    const completedAt = nextSaved.gte(goal.targetAmount) ? goal.completedAt : null;
+    const updatedCount = await tx.savingsGoal.updateMany({ where: { id, userId }, data: { completedAt } });
+    if (updatedCount.count !== 1) throw notFound();
+    const updatedGoal = await tx.savingsGoal.findFirstOrThrow({ where: { id, userId } });
     return {
       entry: { id: entry.id, entryType: entry.entryType, amount: decimalToAmount(entry.amount), depositDate: dateOnly(entry.depositDate), note: entry.note },
       goal: summarizeGoal(updatedGoal, nextSaved),

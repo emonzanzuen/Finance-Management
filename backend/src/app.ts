@@ -8,7 +8,8 @@ import { errorHandler, notFound } from './middleware/errorHandler';
 import { createGlobalRateLimit } from './middleware/rateLimit';
 import { requestId } from './middleware/requestId';
 import { healthRouter } from './modules/health/health.routes';
-import { authRouter } from './modules/auth/auth.routes';
+import { createAuthRouter } from './modules/auth/auth.routes';
+import type { EmailSender } from './modules/auth/auth.passwordReset.service';
 import { profileRouter } from './modules/profile/profile.routes';
 import { categoriesRouter } from './modules/categories/categories.routes';
 import { transactionsRouter } from './modules/transactions/transactions.routes';
@@ -19,6 +20,9 @@ import { reportsRouter } from './modules/reports/reports.routes';
 import { currenciesRouter } from './modules/currencies/currencies.routes';
 import { notificationsRouter } from './modules/notifications/notifications.routes';
 import { importsRouter } from './modules/imports/imports.routes';
+import { devicesRouter } from './modules/devices/devices.routes';
+import { createReceiptsRouter } from './modules/receipts/receipts.routes';
+import type { ReceiptExtractor } from './modules/receipts/receipts.extractor';
 
 export interface CreateAppOptions {
   nodeEnv?: 'development' | 'test' | 'production';
@@ -27,6 +31,11 @@ export interface CreateAppOptions {
   rateLimitMax?: number;
   rateLimitWindowMs?: number;
   extraRoutes?: Router;
+  receiptExtractor?: ReceiptExtractor;
+  scanEnabled?: boolean;
+  scanDailyLimit?: number;
+  receiptRequestTimeoutMs?: number;
+  emailSender?: EmailSender;
 }
 
 /**
@@ -88,7 +97,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use(createGlobalRateLimit(options.rateLimitMax, options.rateLimitWindowMs));
 
   app.use('/api/v1', healthRouter);
-  app.use('/api/v1', authRouter);
+  app.use('/api/v1', createAuthRouter(options.emailSender));
   app.use('/api/v1', profileRouter);
   app.use('/api/v1', categoriesRouter);
   app.use('/api/v1', transactionsRouter);
@@ -99,6 +108,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use('/api/v1', currenciesRouter);
   app.use('/api/v1', notificationsRouter);
   app.use('/api/v1', importsRouter);
+  app.use('/api/v1', devicesRouter);
+  app.use('/api/v1', createReceiptsRouter({ extractor: options.receiptExtractor, scanEnabled: options.scanEnabled, dailyLimit: options.scanDailyLimit, requestTimeoutMs: options.receiptRequestTimeoutMs }));
   if (options.extraRoutes) {
     app.use('/api/v1', options.extraRoutes);
   }

@@ -267,11 +267,15 @@ describe('M2 P0 response contracts and financial consistency', () => {
       },
       budget: { findMany: vi.fn().mockResolvedValue([budget]) },
       notification: {
-        createMany: vi.fn(async ({ data, skipDuplicates }: { data: Array<{ type: string; dedupeKey: string }>; skipDuplicates: boolean }) => {
+        createManyAndReturn: vi.fn(async ({ data, skipDuplicates }: { data: Array<{ userId: string; type: 'budget_warning' | 'budget_exceeded'; dedupeKey: string }>; skipDuplicates: boolean }) => {
+          const created: Array<{ userId: string; type: 'budget_warning' | 'budget_exceeded' }> = [];
           for (const row of data) {
-            if (!skipDuplicates || !notificationKeys.has(row.dedupeKey)) notificationKeys.set(row.dedupeKey, row.type);
+            if (!skipDuplicates || !notificationKeys.has(row.dedupeKey)) {
+              notificationKeys.set(row.dedupeKey, row.type);
+              created.push({ userId: row.userId, type: row.type });
+            }
           }
-          return { count: data.length };
+          return created;
         }),
       },
     };
@@ -291,7 +295,7 @@ describe('M2 P0 response contracts and financial consistency', () => {
     expect(first.status).toBe(201);
     expect(second.status).toBe(201);
     expect(budgetsResponse.body.data.items[0]).toMatchObject({ status: 'exceeded', remaining: -100 });
-    expect(tx.notification.createMany).toHaveBeenCalledWith(expect.objectContaining({ skipDuplicates: true }));
+    expect(tx.notification.createManyAndReturn).toHaveBeenCalledWith(expect.objectContaining({ skipDuplicates: true }));
     expect([...notificationKeys.values()].filter((type) => type === 'budget_exceeded')).toHaveLength(1);
   });
 });

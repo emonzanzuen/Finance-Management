@@ -350,10 +350,11 @@ describe('M1 authentication and ownership security', () => {
         $queryRaw: vi.fn(async () => { release = await acquireLock(); return []; }),
         savingsGoal: {
           findFirst: vi.fn(async () => ({ ...goal, completedAt })),
-          update: vi.fn(async ({ data }: { data: { completedAt: Date | null } }) => {
+          updateMany: vi.fn(async ({ data }: { data: { completedAt: Date | null } }) => {
             completedAt = data.completedAt;
-            return { ...goal, completedAt };
+            return { count: 1 };
           }),
+          findFirstOrThrow: vi.fn(async () => ({ ...goal, completedAt })),
         },
         savingsDeposit: {
           groupBy: vi.fn(async () => saved.isZero() ? [] : [{ entryType: 'deposit' as const, _sum: { amount: saved } }]),
