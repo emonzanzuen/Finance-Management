@@ -1,41 +1,106 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { authService } from "../api/services/auth.js";
+import { setUnauthorizedHandler } from "../api/http.js";
+import { tokenStore } from "../api/tokenStore.js";
+import { healthService } from "../api/services/health.js";
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
+/**
+ * Status sesi: loading (memeriksa token), signedOut, signedIn, error (server tidak terjangkau saat start).
+ * Token JWT disimpan lewat tokenStore; identitas pengguna selalu berasal dari GET /profile.
+ */
 export const AuthProvider = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('isAuthenticated') === 'true';
-  });
+  const queryClient = useQueryClient();
+  const [status, setStatus] = useState(() => (tokenStore.get() ? "loading" : "signedOut"));
+  const [user, setUser] = useState(null);
 
-  const login = () => {
-    localStorage.setItem('isAuthenticated', 'true');
-    setIsAuthenticated(true);
-    window.dispatchEvent(new Event('storage'));
-  };
+  const clearSession = useCallback(() => {
+    tokenStore.clear();
+    queryClient.clear();
+    setUser(null);
+    setStatus("signedOut");
+  }, [queryClient]);
 
-  const logout = () => {
-    localStorage.removeItem('isAuthenticated');
-    setIsAuthenticated(false);
-    window.dispatchEvent(new Event('storage'));
-  };
-
+  // 401 dari server di mana pun: keluar dan kembali ke Login.
   useEffect(() => {
-    const handleStorage = () => {
-      setIsAuthenticated(localStorage.getItem('isAuthenticated') === 'true');
+    setUnauthorizedHandler(() => clearSession());
+    return () => setUnauthorizedHandler(null);
+  }, [clearSession]);
+
+  // Verifikasi token saat aplikasi dibuka.
+  useEffect(() => {
+    if (status !== "loading") return undefined;
+    let cancelled = false;
+    authService
+      .profile()
+      .then((profile) => {
+        if (cancelled) return;
+        setUser(profile);
+        setStatus("signedIn");
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (err?.status === 401) clearSession();
+        else setStatus("error");
+      });
+    return () => {
+      cancelled = true;
     };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+  }, [status, clearSession]);
+
+  useEffect(() => { healthService.check().catch(() => undefined); }, []);
+
+  const establish = useCallback((result) => {
+    tokenStore.set(result.token);
+    setUser(result.user);
+    setStatus("signedIn");
+    return result.user;
   }, []);
 
-  return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
-      {children}
-    </AuthContext.Provider>
+  const login = useCallback(async (email, password) => establish(await authService.login({ email, password })), [establish]);
+  const register = useCallback(async (body) => establish(await authService.register(body)), [establish]);
+
+  const logout = useCallback(async () => {
+    try {
+      await authService.logout();
+    } catch {
+      /* tetap keluar di sisi klien walau panggilan gagal */
+    } finally {
+      clearSession();
+    }
+  }, [clearSession]);
+
+  const logoutAll = useCallback(async () => {
+    try { await authService.logoutAll(); } finally { clearSession(); }
+  }, [clearSession]);
+
+  const updateProfile = useCallback(async (body) => {
+    const profile = await authService.updateProfile(body);
+    setUser(profile);
+    queryClient.setQueryData(["profile"], profile);
+    return profile;
+  }, [queryClient]);
+
+  const changePassword = useCallback(async (body) => {
+    const result = await authService.changePassword(body);
+    if (result?.token) tokenStore.set(result.token);
+    return result;
+  }, []);
+
+  const retry = useCallback(() => setStatus("loading"), []);
+
+  const value = useMemo(
+    () => ({ status, user, isAuthenticated: status === "signedIn", login, register, logout, logoutAll, updateProfile, changePassword, retry }),
+    [status, user, login, register, logout, logoutAll, updateProfile, changePassword, retry],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
 };

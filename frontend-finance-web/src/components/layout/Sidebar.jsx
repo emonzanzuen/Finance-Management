@@ -13,6 +13,9 @@ import {
   LogOut,
   X,
   TrendingUp,
+  Bell,
+  FileSpreadsheet,
+  Receipt,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -23,6 +26,9 @@ const menuItems = [
   { path: "/budget", icon: TrendingUp, labelKey: "nav.budget" },
   { path: "/savings", icon: Target, labelKey: "nav.savings" },
   { path: "/reports", icon: BarChart3, labelKey: "nav.reports" },
+  { path: "/notifications", icon: Bell, labelKey: "common.notifications" },
+  { path: "/imports", icon: FileSpreadsheet, labelKey: "nav.import" },
+  { path: "/scan-receipt", icon: Receipt, labelKey: "nav.scan_receipt" },
   { path: "/profile", icon: User, labelKey: "nav.profile" },
   { path: "/settings", icon: Settings, labelKey: "nav.settings" },
 ];

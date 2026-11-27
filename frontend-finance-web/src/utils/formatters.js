@@ -16,14 +16,10 @@ export const formatCurrency = (amount, currencyCode = 'IDR') => {
     amount = 0;
   }
 
-  // Konfigurasi untuk setiap mata uang
-  const config = {
-    'IDR': { locale: 'id-ID', currency: 'IDR', minFraction: 0 },
-    'USD': { locale: 'en-US', currency: 'USD', minFraction: 2 },
-    'EUR': { locale: 'de-DE', currency: 'EUR', minFraction: 2 },
-  };
-
-  const { locale, currency, minFraction } = config[currencyCode] || config['IDR'];
+  const supported = ['IDR', 'USD', 'EUR', 'SGD', 'MYR', 'JPY', 'GBP', 'AUD', 'SAR', 'CNY', 'KRW', 'THB'];
+  const currency = supported.includes(currencyCode) ? currencyCode : 'IDR';
+  const minFraction = ['IDR', 'JPY', 'KRW'].includes(currency) ? 0 : 2;
+  const locale = currency === 'EUR' ? 'de-DE' : currency === 'USD' ? 'en-US' : 'id-ID';
 
   return new Intl.NumberFormat(locale, {
     style: 'currency',
@@ -48,7 +44,7 @@ export const formatCurrencyWithRate = (amountInIDR, targetCurrency = 'IDR', rate
   if (!amountInIDR || isNaN(amountInIDR)) return formatCurrency(0, targetCurrency);
   
   // Ambil kurs untuk mata uang tujuan
-  const rate = rates[targetCurrency] || 1;
+    const rate = rates[targetCurrency] || 1;
   let convertedAmount = amountInIDR;
   
   // Konversi jika bukan IDR

@@ -1,283 +1,68 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useMemo, useState } from "react";
+import { Plus, Pencil, Trash2, ArrowUpCircle } from "lucide-react";
+import toast from "react-hot-toast";
 import { useApp } from "../../context/AppContext";
-import { formatCurrency } from "../../utils/formatters";
-import BudgetForm from "./BudgetForm";
-import { Edit, AlertCircle, TrendingUp, TrendingDown, Wallet, Percent } from "lucide-react";
-import { gsap } from "gsap";
+import { useBudgets, useCategories, useCreateBudget, useDeleteBudget, useTopUpBudget, useUpdateBudget, useSavingsGoals } from "../../hooks/queries";
+import { formatCurrencyWithRate } from "../../utils/formatters";
+import { apiMessage } from "../../lib/apiMessage";
+import { useTranslation } from "../../hooks/useTranslation";
 
-const Budget = () => {
-  const { budget, updateBudget, transactions } = useApp();
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const summaryRef = useRef(null);
-  const progressRef = useRef(null);
-  const categoriesRef = useRef(null);
-  const [isReady, setIsReady] = useState(false);
-
-  useEffect(() => {
-    const month = budget.month,
-      year = budget.year;
-    const updated = budget.categories.map((cat) => {
-      const spent = transactions
-        .filter(
-          (t) =>
-            t.type === "expense" &&
-            t.category === cat.category &&
-            new Date(t.date).getMonth() === month &&
-            new Date(t.date).getFullYear() === year
-        )
-        .reduce((sum, t) => sum + t.amount, 0);
-      return { ...cat, spentAmount: spent };
-    });
-    if (JSON.stringify(updated) !== JSON.stringify(budget.categories)) {
-      updateBudget({ ...budget, categories: updated });
-    }
-  }, [transactions, budget, updateBudget]);
-
-  // Animasi saat mount - dengan pengecekan aman
-  useEffect(() => {
-    // Tandai siap setelah render pertama
-    setIsReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isReady) return;
-
-    // Beri waktu untuk DOM merender
-    const timer = setTimeout(() => {
-      try {
-        // Animasi summary cards
-        if (summaryRef.current) {
-          gsap.from(summaryRef.current, {
-            opacity: 0,
-            y: 20,
-            duration: 0.5,
-            stagger: 0.1,
-            ease: "power2.out",
-          });
-        }
-
-        // Animasi progress
-        if (progressRef.current) {
-          gsap.from(progressRef.current, {
-            opacity: 0,
-            y: 20,
-            duration: 0.6,
-            ease: "power2.out",
-            delay: 0.3,
-          });
-        }
-
-        // Animasi categories
-        if (categoriesRef.current) {
-          gsap.from(categoriesRef.current, {
-            opacity: 0,
-            y: 20,
-            duration: 0.6,
-            ease: "power2.out",
-            delay: 0.5,
-          });
-        }
-      } catch (error) {
-        console.warn("GSAP animation error:", error);
-        // Animasi gagal, tapi konten tetap muncul
+const emptyForm = { categoryId: "", budgetAmount: "", amount: "", source: "manual", goalId: "" };
+export default function Budget() {
+  const { t } = useTranslation();
+  const { currency, exchangeRates } = useApp();
+  const now = new Date();
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
+  const [dialog, setDialog] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [error, setError] = useState("");
+  const { data, isLoading, isError, refetch } = useBudgets(month, year);
+  const { data: categories = [] } = useCategories("expense");
+  const { data: savings } = useSavingsGoals();
+  const create = useCreateBudget(); const update = useUpdateBudget(); const remove = useDeleteBudget(); const topUp = useTopUpBudget();
+  const busy = create.isPending || update.isPending || remove.isPending || topUp.isPending;
+  const money = (v) => formatCurrencyWithRate(Number(v || 0), currency, exchangeRates);
+  const items = data?.items ?? [];
+  const categoryIds = useMemo(() => new Set(items.map((x) => x.category?.id)), [items]);
+  const open = (mode, item = null) => {
+    setError(""); setDialog({ mode, item });
+    setForm(item ? { ...emptyForm, categoryId: item.category?.id ?? "", budgetAmount: String(item.budgetAmount ?? "") } : emptyForm);
+  };
+  const close = () => { if (!busy) setDialog(null); };
+  const submit = async (e) => {
+    e.preventDefault(); setError("");
+    try {
+      if (dialog.mode === "topup") {
+        await topUp.mutateAsync({ id: dialog.item.id, body: { amount: Number(form.amount), source: form.source, ...(form.source === "savings" ? { goalId: form.goalId } : {}) } });
+        toast.success("Anggaran berhasil ditambah.");
+      } else if (dialog.mode === "edit") {
+        await update.mutateAsync({ id: dialog.item.id, body: { budgetAmount: Number(form.budgetAmount) } });
+        toast.success("Anggaran berhasil diperbarui.");
+      } else {
+        await create.mutateAsync({ categoryId: form.categoryId, month, year, budgetAmount: Number(form.budgetAmount) });
+        toast.success("Anggaran berhasil ditambahkan.");
       }
-    }, 200);
+      setDialog(null);
+    } catch (err) { setError(apiMessage(t, err)); }
+  };
+  const deleteItem = async (item) => {
+    if (!window.confirm(`Hapus anggaran kategori ${item.category?.name}?`)) return;
+    try { await remove.mutateAsync(item.id); toast.success("Anggaran dihapus."); }
+    catch (err) { toast.error(apiMessage(t, err)); }
+  };
+  const changePeriod = (delta) => { const date = new Date(year, month - 1 + delta, 1); setMonth(date.getMonth() + 1); setYear(date.getFullYear()); };
+  const categoriesAvailable = categories.filter((c) => !categoryIds.has(c.id));
 
-    return () => clearTimeout(timer);
-  }, [isReady]);
-
-  const totalBudget = budget.categories.reduce((s, c) => s + c.budgetAmount, 0);
-  const totalSpent = budget.categories.reduce((s, c) => s + c.spentAmount, 0);
-  const remaining = totalBudget - totalSpent;
-  const progress = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
-
-  // Kategori dengan pengeluaran tertinggi
-  const topCategory = budget.categories.reduce(
-    (max, cat) => (cat.spentAmount > max.spentAmount ? cat : max),
-    budget.categories[0] || { category: "", spentAmount: 0 }
-  );
-
-  return (
-    <div className="space-y-6">
-      {/* ===== HEADER ===== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-            Budget Bulanan
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-2">
-            <Wallet className="w-4 h-4" />
-            {new Date(budget.year, budget.month).toLocaleDateString("id-ID", {
-              month: "long",
-              year: "numeric",
-            })}
-          </p>
-        </div>
-        <button onClick={() => setIsFormOpen(true)} className="btn btn-primary">
-          <Edit className="w-4 h-4" /> Edit Budget
-        </button>
-      </div>
-
-      {/* ===== SUMMARY CARDS ===== */}
-      <div ref={summaryRef} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          {
-            title: "Total Budget",
-            value: totalBudget,
-            icon: Wallet,
-            color: "text-indigo-600 dark:text-indigo-400",
-            bg: "bg-indigo-50 dark:bg-indigo-950/40",
-          },
-          {
-            title: "Total Pengeluaran",
-            value: totalSpent,
-            icon: TrendingDown,
-            color: "text-rose-600 dark:text-rose-400",
-            bg: "bg-rose-50 dark:bg-rose-950/40",
-          },
-          {
-            title: "Sisa Budget",
-            value: remaining,
-            icon: TrendingUp,
-            color: remaining >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400",
-            bg: remaining >= 0 ? "bg-emerald-50 dark:bg-emerald-950/40" : "bg-rose-50 dark:bg-rose-950/40",
-          },
-        ].map((item, idx) => (
-          <div
-            key={idx}
-            className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/70 dark:border-gray-800/70 p-5 shadow-sm hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  {item.title}
-                </p>
-                <p className={`text-xl lg:text-2xl font-bold mt-1 ${item.color}`}>
-                  {formatCurrency(item.value)}
-                </p>
-              </div>
-              <div className={`${item.bg} p-3 rounded-xl`}>
-                <item.icon className={`w-5 h-5 ${item.color}`} />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* ===== PROGRESS ===== */}
-      <div ref={progressRef} className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/70 dark:border-gray-800/70 p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Penggunaan Budget
-          </span>
-          <span className="text-sm font-bold text-gray-900 dark:text-white">
-            {progress.toFixed(1)}%
-          </span>
-        </div>
-        <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-700 ease-out ${
-              progress > 90 ? "bg-rose-500" : progress > 70 ? "bg-amber-500" : "bg-emerald-500"
-            }`}
-            style={{ width: `${Math.min(progress, 100)}%` }}
-          />
-        </div>
-        <div className="flex items-center justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
-          <span>0%</span>
-          <span>50%</span>
-          <span>100%</span>
-        </div>
-        {progress > 90 && (
-          <div className="flex items-center gap-2 mt-3 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800/50">
-            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-            <span className="text-sm text-amber-700 dark:text-amber-300">
-              Budget hampir habis! Perhatikan pengeluaran Anda.
-            </span>
-          </div>
-        )}
-        {topCategory && topCategory.spentAmount > 0 && (
-          <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Kategori dengan pengeluaran tertinggi:
-              <span className="font-semibold text-gray-900 dark:text-white ml-1">
-                {topCategory.category}
-              </span>
-              <span className="ml-2 text-gray-600 dark:text-gray-300">
-                {formatCurrency(topCategory.spentAmount)}
-              </span>
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* ===== CATEGORIES BREAKDOWN ===== */}
-      <div ref={categoriesRef} className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/70 dark:border-gray-800/70 p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-            Rincian per Kategori
-          </h3>
-          <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
-            {budget.categories.length} kategori
-          </span>
-        </div>
-        <div className="space-y-4">
-          {budget.categories.map((cat, i) => {
-            const prog = cat.budgetAmount > 0 ? (cat.spentAmount / cat.budgetAmount) * 100 : 0;
-            const isOver = cat.spentAmount > cat.budgetAmount;
-            const isNearLimit = prog > 80 && prog <= 100;
-            const statusColor = isOver
-              ? "text-rose-600 dark:text-rose-400"
-              : isNearLimit
-              ? "text-amber-600 dark:text-amber-400"
-              : "text-emerald-600 dark:text-emerald-400";
-            const barColor = isOver
-              ? "bg-rose-500"
-              : isNearLimit
-              ? "bg-amber-500"
-              : "bg-indigo-500";
-
-            return (
-              <div key={i} className="group">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                      {cat.category}
-                    </span>
-                    {isOver && (
-                      <span className="text-xs font-medium text-rose-600 dark:text-rose-400">
-                        ⚠️ Over
-                      </span>
-                    )}
-                    {isNearLimit && !isOver && (
-                      <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
-                        ⚠️ Hampir habis
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-gray-500 dark:text-gray-400">
-                    {formatCurrency(cat.spentAmount)} / {formatCurrency(cat.budgetAmount)}
-                  </span>
-                </div>
-                <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full mt-1 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-                    style={{ width: `${Math.min(prog, 100)}%` }}
-                  />
-                </div>
-                <div className="flex justify-between mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">
-                  <span>{formatCurrency(cat.spentAmount)} terpakai</span>
-                  <span>{prog.toFixed(0)}%</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ===== MODAL ===== */}
-      <BudgetForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />
-    </div>
-  );
-};
-
-export default Budget;
+  return <div className="space-y-6">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-bold">{t("nav.budget")}</h2><p className="text-sm text-gray-500">Anggaran dan pemakaian dihitung dari backend.</p></div><button className="btn btn-primary" onClick={() => open("create")} disabled={!categoriesAvailable.length}><Plus className="mr-2 h-4 w-4" />Tambah anggaran</button></div>
+    <div className="flex items-center gap-3"><button className="btn btn-outline" onClick={() => changePeriod(-1)}>‹</button><strong>{new Date(year, month - 1, 1).toLocaleDateString("id-ID", { month: "long", year: "numeric" })}</strong><button className="btn btn-outline" onClick={() => changePeriod(1)}>›</button></div>
+    {isError && <div role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">Gagal memuat anggaran. <button className="underline" onClick={() => refetch()}>Coba lagi</button></div>}
+    {isLoading ? <p className="py-10 text-center text-gray-500">Memuat anggaran…</p> : <>
+      <div className="grid gap-4 sm:grid-cols-3">{[["Total anggaran", data?.summary?.totalBudget], ["Terpakai", data?.summary?.totalSpent], ["Sisa", data?.summary?.remaining]].map(([label, value]) => <div key={label} className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"><p className="text-sm text-gray-500">{label}</p><p className="mt-2 text-xl font-bold">{money(value)}</p></div>)}</div>
+      {items.length ? <div className="grid gap-4 lg:grid-cols-2">{items.map((item) => { const pct = Number(item.percentage || 0); const tone = item.status === "exceeded" || item.status === "critical" ? "bg-rose-500" : item.status === "warning" ? "bg-amber-500" : "bg-emerald-500"; return <article key={item.id} className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{item.category?.name}</h3><p className="mt-1 text-sm text-gray-500">{money(item.spentAmount)} dari {money(item.budgetAmount)} · sisa {money(item.remaining)}</p></div><div className="flex gap-1"><button className="btn btn-outline" title="Tambah anggaran" onClick={() => open("topup", item)}><ArrowUpCircle className="h-4 w-4" /></button><button className="btn btn-outline" title="Ubah" onClick={() => open("edit", item)}><Pencil className="h-4 w-4" /></button><button className="btn btn-outline text-rose-600" title="Hapus" onClick={() => deleteItem(item)}><Trash2 className="h-4 w-4" /></button></div></div><div className="mt-4 h-2 overflow-hidden rounded bg-gray-100 dark:bg-gray-800"><div className={`h-full ${tone}`} style={{ width: `${Math.min(pct, 100)}%` }} /></div><p className="mt-2 text-right text-xs text-gray-500">{pct.toFixed(0)}% · {item.status}</p></article>; })}</div> : <div className="rounded-2xl border border-dashed p-10 text-center text-gray-500">Belum ada anggaran untuk periode ini.</div>}
+    </>}
+    {dialog && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onMouseDown={(e) => e.target === e.currentTarget && close()}><form onSubmit={submit} className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900"><h3 className="text-lg font-semibold">{dialog.mode === "create" ? "Tambah anggaran" : dialog.mode === "edit" ? "Ubah anggaran" : "Tambah alokasi anggaran"}</h3>{error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}{dialog.mode === "create" && <label className="block text-sm">Kategori<select required className="input mt-1" value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}><option value="">Pilih kategori</option>{categoriesAvailable.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}{dialog.mode === "topup" && <><label className="block text-sm">Sumber<select className="input mt-1" value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}><option value="manual">Tambah manual</option><option value="savings">Dari tabungan</option></select></label>{form.source === "savings" && <label className="block text-sm">Target tabungan<select required className="input mt-1" value={form.goalId} onChange={(e) => setForm({ ...form, goalId: e.target.value })}><option value="">Pilih target</option>{(savings?.items ?? []).map((g) => <option key={g.id} value={g.id}>{g.title} ({money(g.currentAmount)})</option>)}</select></label>}</>}
+      <label className="block text-sm">Nominal<input required min="1" step="1" type="number" className="input mt-1" value={dialog.mode === "topup" ? form.amount : form.budgetAmount} onChange={(e) => setForm({ ...form, [dialog.mode === "topup" ? "amount" : "budgetAmount"]: e.target.value })} /></label><div className="flex justify-end gap-2"><button type="button" className="btn btn-outline" onClick={close} disabled={busy}>Batal</button><button className="btn btn-primary" disabled={busy}>{busy ? "Menyimpan…" : "Simpan"}</button></div></form></div>}
+  </div>;
+}

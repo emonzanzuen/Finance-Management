@@ -14,6 +14,8 @@ import {
   Menu,
   X,
   TrendingUp,
+  Bell,
+  FileSpreadsheet,
 } from "lucide-react";
 import { gsap } from "gsap";
 
@@ -24,6 +26,9 @@ const menuItems = [
   { path: "/budget", icon: TrendingUp, labelKey: "budget" },
   { path: "/savings", icon: Target, labelKey: "savings" },
   { path: "/reports", icon: BarChart3, labelKey: "reports" },
+  { path: "/notifications", icon: Bell, labelKey: "notifications" },
+  { path: "/imports", icon: FileSpreadsheet, labelKey: "import" },
+  { path: "/scan-receipt", icon: Wallet, labelKey: "scan_receipt" },
   { path: "/profile", icon: User, labelKey: "profile" },
   { path: "/settings", icon: Settings, labelKey: "settings" },
 ];

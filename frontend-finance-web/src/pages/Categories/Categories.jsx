@@ -1,590 +1,248 @@
 import React, { useState } from "react";
-import ReactDOM from "react-dom";
-import { useApp } from "../../context/AppContext";
-import { useTheme } from "../../context/ThemeContext";
-import {
-  Plus,
-  Edit,
-  Trash2,
-  X,
-  Tag,
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-} from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Plus, Pencil, Trash2, Tags } from "lucide-react";
+import toast from "react-hot-toast";
+import PageHeader from "../../components/common/PageHeader";
+import ErrorState from "../../components/common/ErrorState";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
+import Card from "../../components/ui/Card";
+import Button from "../../components/ui/Button";
+import Modal from "../../components/ui/Modal";
+import EmptyState from "../../components/ui/EmptyState";
+import SkeletonLoader from "../../components/ui/SkeletonLoader";
+import { useTranslation } from "../../hooks/useTranslation";
+import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "../../hooks/queries";
+import { categorySchema } from "../../lib/schemas";
+import { COLOR_PRESETS } from "../../lib/rules";
+import { fieldErrors } from "../../api/errors";
+import { apiMessage } from "../../lib/apiMessage";
 
-const Categories = () => {
-  // ✅ Gunakan fungsi dari context (dengan toast)
-  const { categories, addCategory, editCategory, deleteCategory } = useApp();
-  const { isDark } = useTheme();
+const inputCls =
+  "w-full px-3 py-2.5 text-sm rounded-xl border bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500";
 
-  // ===== STATE =====
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    type: "expense",
-    color: "#6366f1",
+const CategoryForm = ({ category, defaultType, onClose }) => {
+  const { t } = useTranslation();
+  const create = useCreateCategory();
+  const update = useUpdateCategory();
+  const [formError, setFormError] = useState("");
+  const editing = Boolean(category);
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    setError,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(categorySchema),
+    defaultValues: {
+      name: category?.name ?? "",
+      type: category?.type ?? defaultType ?? "expense",
+      color: category?.color ?? COLOR_PRESETS[0],
+    },
   });
-  const [errors, setErrors] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
+  const type = watch("type");
+  const color = watch("color");
+  const busy = create.isPending || update.isPending;
 
-  // ===== PREDEFINED COLORS =====
-  const colorOptions = [
-    "#6366f1", "#22c55e", "#ef4444", "#f59e0b",
-    "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6",
-    "#f97316", "#06b6d4", "#84cc16", "#a855f7",
-  ];
-
-  // ===== MODAL HANDLERS =====
-  const openModal = (category = null) => {
-    if (category) {
-      setEditingId(category.id);
-      setFormData({
-        name: category.name,
-        type: category.type,
-        color: category.color || "#6366f1",
-      });
-    } else {
-      setEditingId(null);
-      setFormData({
-        name: "",
-        type: "expense",
-        color: "#6366f1",
-      });
-    }
-    setErrors({});
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingId(null);
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
-  };
-
-  // ===== SUBMIT =====
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = "Nama kategori harus diisi";
-    if (!formData.type) newErrors.type = "Tipe harus dipilih";
-    if (!formData.color) newErrors.color = "Warna harus dipilih";
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
-    setIsLoading(true);
-    const data = {
-      name: formData.name.trim(),
-      type: formData.type,
-      color: formData.color,
-    };
-
-    setTimeout(() => {
-      if (editingId) {
-        // ✅ Pakai editCategory dari context (ada toast)
-        editCategory(editingId, data);
+  const onSubmit = async (v) => {
+    setFormError("");
+    try {
+      if (editing) {
+        // Kirim hanya field yang berubah agar aturan tipe terkunci tidak terpicu tanpa perlu.
+        const body = {};
+        if (v.name.trim() !== category.name) body.name = v.name.trim();
+        if (v.type !== category.type) body.type = v.type;
+        if (v.color.toLowerCase() !== category.color.toLowerCase()) body.color = v.color;
+        if (Object.keys(body).length) await update.mutateAsync({ id: category.id, body });
+        toast.success(t("categories.updated"));
       } else {
-        // ✅ Pakai addCategory dari context (ada toast)
-        addCategory(data);
+        await create.mutateAsync({ name: v.name.trim(), type: v.type, color: v.color });
+        toast.success(t("categories.created"));
       }
-      setIsLoading(false);
-      closeModal();
-    }, 500);
-  };
-
-  // ===== DELETE =====
-  const handleDelete = (id, name) => {
-    if (window.confirm(`Hapus kategori "${name}"?`)) {
-      // ✅ Pakai deleteCategory dari context (ada toast)
-      deleteCategory(id);
+      onClose();
+    } catch (err) {
+      if (err.code === "CATEGORY_DUPLICATE") setError("name", { message: apiMessage(t, err) });
+      else if (err.code === "CATEGORY_TYPE_LOCKED") setError("type", { message: apiMessage(t, err) });
+      else {
+        const fe = fieldErrors(err);
+        const known = Object.entries(fe).filter(([k]) => ["name", "type", "color"].includes(k));
+        if (known.length) known.forEach(([k, msg]) => setError(k, { message: msg }));
+        else setFormError(apiMessage(t, err));
+      }
     }
   };
 
-  // ===== MODAL =====
-  const modal = isModalOpen && ReactDOM.createPortal(
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 999999,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: isDark ? "rgba(0,0,0,0.7)" : "rgba(0,0,0,0.5)",
-        backdropFilter: "blur(4px)",
-        padding: "1rem",
-        animation: "fadeIn 0.2s ease-out",
-        scrollbarWidth: "none",
-        msOverflowStyle: "none",
-      }}
-      onClick={closeModal}
-    >
-      <div
-        style={{
-          backgroundColor: isDark ? "#1f2937" : "#ffffff",
-          borderRadius: "1rem",
-          maxWidth: "28rem",
-          width: "100%",
-          maxHeight: "90vh",
-          overflowY: "auto",
-          boxShadow: isDark
-            ? "0 25px 50px -12px rgba(0,0,0,0.5)"
-            : "0 25px 50px -12px rgba(0,0,0,0.25)",
-          border: isDark ? "1px solid #374151" : "1px solid #e5e7eb",
-          animation: "scaleIn 0.25s ease-out",
-          scrollbarWidth: "none",
-          msOverflowStyle: "none",
-        }}
-        className="scrollbar-hide"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div
-          style={{
-            padding: "1.25rem 1.5rem",
-            borderBottom: isDark ? "1px solid #374151" : "1px solid #e5e7eb",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            position: "sticky",
-            top: 0,
-            backgroundColor: isDark ? "#1f2937" : "#ffffff",
-            borderTopLeftRadius: "1rem",
-            borderTopRightRadius: "1rem",
-            zIndex: 10,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <div
-              style={{
-                padding: "0.5rem",
-                borderRadius: "0.75rem",
-                backgroundColor: isDark ? "#374151" : "#eef2ff",
-              }}
-            >
-              {editingId ? (
-                <Edit style={{ width: "1.25rem", height: "1.25rem", color: isDark ? "#818cf8" : "#4f46e5" }} />
-              ) : (
-                <Tag style={{ width: "1.25rem", height: "1.25rem", color: isDark ? "#818cf8" : "#4f46e5" }} />
-              )}
-            </div>
-            <div>
-              <h3 style={{ fontSize: "1.125rem", fontWeight: "600", color: isDark ? "#f9fafb" : "#111827" }}>
-                {editingId ? "Edit Kategori" : "Tambah Kategori"}
-              </h3>
-              <p style={{ fontSize: "0.75rem", color: isDark ? "#9ca3af" : "#6b7280" }}>
-                {editingId ? "Perbarui data kategori" : "Tambahkan kategori baru"}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={closeModal}
-            style={{
-              padding: "0.5rem",
-              borderRadius: "0.5rem",
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              color: isDark ? "#9ca3af" : "#6b7280",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = isDark ? "#374151" : "#f3f4f6")}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-          >
-            <X style={{ width: "1.25rem", height: "1.25rem" }} />
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={{ padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <div>
-            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.875rem", fontWeight: "500", color: isDark ? "#e5e7eb" : "#374151", marginBottom: "0.25rem" }}>
-              <Tag style={{ width: "1rem", height: "1rem", color: isDark ? "#9ca3af" : "#6b7280" }} />
-              Nama Kategori
-            </label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="Contoh: Makanan, Transportasi, dll"
-              style={{
-                width: "100%",
-                padding: "0.625rem 1rem",
-                border: errors.name ? "1px solid #ef4444" : isDark ? "1px solid #4b5563" : "1px solid #d1d5db",
-                borderRadius: "0.75rem",
-                fontSize: "0.875rem",
-                outline: "none",
-                backgroundColor: isDark ? "#374151" : "#ffffff",
-                color: isDark ? "#f9fafb" : "#111827",
-              }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "#6366f1")}
-              onBlur={(e) => {
-                if (!errors.name) e.currentTarget.style.borderColor = isDark ? "#4b5563" : "#d1d5db";
-              }}
-            />
-            {errors.name && <p style={{ color: "#ef4444", fontSize: "0.75rem", marginTop: "0.25rem" }}>{errors.name}</p>}
-          </div>
-
-          <div>
-            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.875rem", fontWeight: "500", color: isDark ? "#e5e7eb" : "#374151", marginBottom: "0.25rem" }}>
-              <DollarSign style={{ width: "1rem", height: "1rem", color: isDark ? "#9ca3af" : "#6b7280" }} />
-              Tipe
-            </label>
-            <select
-              name="type"
-              value={formData.type}
-              onChange={handleChange}
-              style={{
-                width: "100%",
-                padding: "0.625rem 1rem",
-                border: errors.type ? "1px solid #ef4444" : isDark ? "1px solid #4b5563" : "1px solid #d1d5db",
-                borderRadius: "0.75rem",
-                fontSize: "0.875rem",
-                outline: "none",
-                backgroundColor: isDark ? "#374151" : "#ffffff",
-                color: isDark ? "#f9fafb" : "#111827",
-              }}
-            >
-              <option value="expense">Pengeluaran</option>
-              <option value="income">Pemasukan</option>
-            </select>
-            {errors.type && <p style={{ color: "#ef4444", fontSize: "0.75rem", marginTop: "0.25rem" }}>{errors.type}</p>}
-          </div>
-
-          <div>
-            <label style={{ display: "block", fontSize: "0.875rem", fontWeight: "500", color: isDark ? "#e5e7eb" : "#374151", marginBottom: "0.5rem" }}>
-              Warna
-            </label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-              {colorOptions.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, color }))}
-                  style={{
-                    width: "2rem",
-                    height: "2rem",
-                    borderRadius: "50%",
-                    backgroundColor: color,
-                    border: formData.color === color
-                      ? isDark ? "2px solid #818cf8" : "2px solid #4f46e5"
-                      : isDark ? "2px solid #374151" : "2px solid #e5e7eb",
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                    transform: formData.color === color ? "scale(1.1)" : "scale(1)",
-                    outline: "none",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (formData.color !== color) e.currentTarget.style.transform = "scale(1.05)";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (formData.color !== color) e.currentTarget.style.transform = "scale(1)";
-                  }}
-                />
-              ))}
-              <input
-                type="color"
-                name="color"
-                value={formData.color}
-                onChange={handleChange}
-                style={{
-                  width: "2rem",
-                  height: "2rem",
-                  borderRadius: "50%",
-                  border: isDark ? "2px solid #374151" : "2px solid #e5e7eb",
-                  cursor: "pointer",
-                  padding: "0",
-                  background: "transparent",
-                }}
-              />
-            </div>
-            {errors.color && <p style={{ color: "#ef4444", fontSize: "0.75rem", marginTop: "0.25rem" }}>{errors.color}</p>}
-          </div>
-
-          {/* Preview */}
-          {formData.name && (
-            <div style={{
-              padding: "1rem",
-              backgroundColor: isDark ? "#374151" : "#f9fafb",
-              borderRadius: "0.75rem",
-              border: isDark ? "1px solid #4b5563" : "1px solid #e5e7eb",
-              marginTop: "0.5rem",
-            }}>
-              <p style={{ fontSize: "0.75rem", color: isDark ? "#9ca3af" : "#6b7280", fontWeight: "500", marginBottom: "0.25rem" }}>Preview</p>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                <div
-                  style={{
-                    width: "2.5rem",
-                    height: "2.5rem",
-                    borderRadius: "0.75rem",
-                    backgroundColor: formData.color + "20",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "1rem",
-                      height: "1rem",
-                      borderRadius: "50%",
-                      backgroundColor: formData.color,
-                    }}
-                  />
-                </div>
-                <div>
-                  <p style={{ fontSize: "0.875rem", fontWeight: "500", color: isDark ? "#f9fafb" : "#111827" }}>
-                    {formData.name || "Nama Kategori"}
-                  </p>
-                  <p style={{ fontSize: "0.75rem", color: isDark ? "#9ca3af" : "#6b7280" }}>
-                    {formData.type === "income" ? "Pemasukan" : "Pengeluaran"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div style={{ display: "flex", gap: "0.75rem", paddingTop: "0.5rem", borderTop: isDark ? "1px solid #374151" : "1px solid #e5e7eb", marginTop: "0.5rem" }}>
-            <button
-              type="button"
-              onClick={closeModal}
-              style={{
-                flex: 1,
-                padding: "0.625rem",
-                borderRadius: "0.75rem",
-                backgroundColor: isDark ? "#4b5563" : "#e5e7eb",
-                border: "none",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-                fontWeight: "500",
-                color: isDark ? "#f9fafb" : "#1f2937",
-              }}
-              disabled={isLoading}
-            >
-              Batal
-            </button>
-            <button
-              type="submit"
-              style={{
-                flex: 1,
-                padding: "0.625rem",
-                borderRadius: "0.75rem",
-                backgroundColor: "#4f46e5",
-                color: "white",
-                border: "none",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-                fontWeight: "500",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.5rem",
-              }}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <span style={{ display: "inline-block", width: "1rem", height: "1rem", border: "2px solid white", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-                  {editingId ? "Menyimpan..." : "Menambahkan..."}
-                </>
-              ) : (
-                editingId ? "Simpan Kategori" : "Tambah Kategori"
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>,
-    document.body
-  );
-
-  // ===== CSS ANIMATION =====
-  const styleSheet = document.createElement("style");
-  styleSheet.textContent = `
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-    @keyframes scaleIn {
-      from { opacity: 0; transform: scale(0.95) translateY(10px); }
-      to { opacity: 1; transform: scale(1) translateY(0); }
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    .scrollbar-hide {
-      -ms-overflow-style: none;
-      scrollbar-width: none;
-    }
-    .scrollbar-hide::-webkit-scrollbar {
-      display: none;
-    }
-  `;
-  if (!document.getElementById("category-animations")) {
-    styleSheet.id = "category-animations";
-    document.head.appendChild(styleSheet);
-  }
-
-  // ===== RENDER =====
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <Modal
+      isOpen
+      onClose={busy ? () => {} : onClose}
+      title={editing ? t("categories.edit") : t("categories.add")}
+      size="md"
+      footer={
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={onClose} disabled={busy}>{t("common.cancel")}</Button>
+          <Button onClick={handleSubmit(onSubmit)} loading={busy}>{t("common.save")}</Button>
+        </div>
+      }
+    >
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
+        {formError && (
+          <div role="alert" className="p-3 rounded-xl text-sm bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300">{formError}</div>
+        )}
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Kategori</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Kelola kategori pemasukan dan pengeluaran</p>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{t("categories.name")}</label>
+          <input className={`${inputCls} ${errors.name ? "border-red-400" : "border-gray-300 dark:border-gray-700"}`} maxLength={50} {...register("name")} />
+          {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>}
         </div>
-        <button onClick={() => openModal()} className="btn btn-primary">
-          <Plus className="w-4 h-4" /> Tambah Kategori
-        </button>
-      </div>
-
-      {/* Income Categories */}
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/70 dark:border-gray-800/70 p-5 shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40">
-            <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+        <div>
+          <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{t("categories.type")}</span>
+          <div className="grid grid-cols-2 gap-2">
+            {["income", "expense"].map((tp) => (
+              <button
+                key={tp}
+                type="button"
+                onClick={() => setValue("type", tp, { shouldValidate: true })}
+                className={`py-2.5 rounded-xl text-sm font-medium border transition ${
+                  type === tp
+                    ? tp === "income"
+                      ? "bg-green-50 border-green-500 text-green-700 dark:bg-green-950/40 dark:text-green-300"
+                      : "bg-red-50 border-red-500 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                    : "border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300"
+                }`}
+              >
+                {t(`transactions.${tp}`)}
+              </button>
+            ))}
           </div>
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Pemasukan</h3>
-          <span className="ml-auto text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
-            {categories.income.length} kategori
-          </span>
+          {errors.type && <p className="text-xs text-red-500 mt-1">{errors.type.message}</p>}
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {categories.income.length === 0 ? (
-            <p className="col-span-full text-sm text-gray-400 text-center py-4">Belum ada kategori pemasukan</p>
-          ) : (
-            categories.income.map((cat) => (
-              <CategoryCard
-                key={cat.id}
-                category={cat}
-                onEdit={() => openModal(cat)}
-                onDelete={() => handleDelete(cat.id, cat.name)}
-                isDark={isDark}
+        <div>
+          <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t("categories.color")}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {COLOR_PRESETS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                aria-label={c}
+                onClick={() => setValue("color", c, { shouldValidate: true })}
+                className={`w-8 h-8 rounded-full border-2 transition ${color?.toLowerCase() === c ? "border-gray-900 dark:border-white scale-110" : "border-transparent"}`}
+                style={{ backgroundColor: c }}
               />
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Expense Categories */}
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/70 dark:border-gray-800/70 p-5 shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40">
-            <TrendingDown className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+            ))}
+            <input
+              type="color"
+              value={/^#[0-9a-fA-F]{6}$/.test(color) ? color : COLOR_PRESETS[0]}
+              onChange={(e) => setValue("color", e.target.value, { shouldValidate: true })}
+              className="w-8 h-8 rounded-full cursor-pointer border border-gray-300 dark:border-gray-700 bg-transparent"
+              aria-label={t("categories.pick_color")}
+            />
           </div>
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Pengeluaran</h3>
-          <span className="ml-auto text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
-            {categories.expense.length} kategori
-          </span>
+          {errors.color && <p className="text-xs text-red-500 mt-1">{errors.color.message}</p>}
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {categories.expense.length === 0 ? (
-            <p className="col-span-full text-sm text-gray-400 text-center py-4">Belum ada kategori pengeluaran</p>
-          ) : (
-            categories.expense.map((cat) => (
-              <CategoryCard
-                key={cat.id}
-                category={cat}
-                onEdit={() => openModal(cat)}
-                onDelete={() => handleDelete(cat.id, cat.name)}
-                isDark={isDark}
-              />
-            ))
-          )}
-        </div>
-      </div>
-
-      {modal}
-    </div>
+      </form>
+    </Modal>
   );
 };
 
-// ===== CATEGORY CARD COMPONENT =====
-const CategoryCard = ({ category, onEdit, onDelete, isDark }) => {
+const CategoryColumn = ({ type, items, onAdd, onEdit, onDelete }) => {
+  const { t } = useTranslation();
+  const income = type === "income";
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "0.75rem 1rem",
-        backgroundColor: isDark ? "#374151" : "#f9fafb",
-        borderRadius: "0.75rem",
-        border: isDark ? "1px solid #4b5563" : "1px solid #e5e7eb",
-        transition: "all 0.2s",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = isDark ? "#818cf8" : "#6366f1";
-        e.currentTarget.style.transform = "translateY(-1px)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = isDark ? "#4b5563" : "#e5e7eb";
-        e.currentTarget.style.transform = "translateY(0)";
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0 }}>
-        <div
-          style={{
-            width: "0.75rem",
-            height: "0.75rem",
-            borderRadius: "50%",
-            backgroundColor: category.color || "#6366f1",
-            flexShrink: 0,
-          }}
-        />
-        <span
-          style={{
-            fontSize: "0.875rem",
-            fontWeight: "500",
-            color: isDark ? "#f9fafb" : "#111827",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {category.name}
-        </span>
+    <Card>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className={`font-semibold ${income ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+          {income ? t("categories.income_categories") : t("categories.expense_categories")}
+          <span className="ml-2 text-sm font-normal text-gray-400">({items.length})</span>
+        </h3>
+        <Button size="sm" variant="outline" icon={Plus} onClick={() => onAdd(type)}>{t("common.add")}</Button>
       </div>
-      <div style={{ display: "flex", gap: "0.25rem", flexShrink: 0 }}>
-        <button
-          onClick={onEdit}
-          style={{
-            padding: "0.25rem",
-            borderRadius: "0.375rem",
-            background: "transparent",
-            border: "none",
-            cursor: "pointer",
-            color: isDark ? "#9ca3af" : "#6b7280",
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = isDark ? "#4b5563" : "#e5e7eb")}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-        >
-          <Edit style={{ width: "0.875rem", height: "0.875rem" }} />
-        </button>
-        <button
-          onClick={onDelete}
-          style={{
-            padding: "0.25rem",
-            borderRadius: "0.375rem",
-            background: "transparent",
-            border: "none",
-            cursor: "pointer",
-            color: "#ef4444",
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = isDark ? "#450a0a" : "#fef2f2")}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-        >
-          <Trash2 style={{ width: "0.875rem", height: "0.875rem" }} />
-        </button>
-      </div>
+      {items.length === 0 ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400 py-6 text-center">{income ? t("categories.no_income") : t("categories.no_expense")}</p>
+      ) : (
+        <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+          {items.map((c) => (
+            <li key={c.id} className="flex items-center justify-between py-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                <span className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{c.name}</span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => onEdit(c)} aria-label={t("common.edit")}>
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40" onClick={() => onDelete(c)} aria-label={t("common.delete")}>
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+};
+
+const Categories = () => {
+  const { t } = useTranslation();
+  const { data, isLoading, isError, error, refetch } = useCategories();
+  const remove = useDeleteCategory();
+  const [form, setForm] = useState(null); // { category?, defaultType? }
+  const [toDelete, setToDelete] = useState(null);
+
+  const items = data ?? [];
+  const income = items.filter((c) => c.type === "income");
+  const expense = items.filter((c) => c.type === "expense");
+
+  const confirmDelete = async () => {
+    try {
+      await remove.mutateAsync(toDelete.id);
+      toast.success(t("categories.deleted"));
+    } catch (err) {
+      if (err.code === "CATEGORY_IN_USE") {
+        toast.error(t("categories.in_use_message", { tx: err.details?.transactionCount ?? 0, budget: err.details?.budgetCount ?? 0 }));
+      } else {
+        toast.error(apiMessage(t, err));
+      }
+    } finally {
+      setToDelete(null);
+    }
+  };
+
+  return (
+    <div>
+      <PageHeader
+        title={t("categories.title")}
+        subtitle={t("categories.subtitle")}
+        icon={Tags}
+        actions={<Button icon={Plus} onClick={() => setForm({})}>{t("categories.add")}</Button>}
+      />
+
+      {isLoading ? (
+        <div className="grid md:grid-cols-2 gap-6"><SkeletonLoader variant="table" /><SkeletonLoader variant="table" /></div>
+      ) : isError ? (
+        <ErrorState message={apiMessage(t, error)} onRetry={refetch} retryText={t("common.retry")} />
+      ) : items.length === 0 ? (
+        <EmptyState title={t("categories.no_income")} actionText={t("categories.add")} onAction={() => setForm({})} />
+      ) : (
+        <div className="grid md:grid-cols-2 gap-6">
+          <CategoryColumn type="income" items={income} onAdd={(tp) => setForm({ defaultType: tp })} onEdit={(c) => setForm({ category: c })} onDelete={setToDelete} />
+          <CategoryColumn type="expense" items={expense} onAdd={(tp) => setForm({ defaultType: tp })} onEdit={(c) => setForm({ category: c })} onDelete={setToDelete} />
+        </div>
+      )}
+
+      {form && <CategoryForm category={form.category} defaultType={form.defaultType} onClose={() => setForm(null)} />}
+      <ConfirmDialog
+        isOpen={Boolean(toDelete)}
+        onClose={() => setToDelete(null)}
+        onConfirm={confirmDelete}
+        loading={remove.isPending}
+        title={t("categories.delete")}
+        message={t("categories.confirm_delete")}
+        confirmText={t("common.delete")}
+        cancelText={t("common.cancel")}
+      />
     </div>
   );
 };
