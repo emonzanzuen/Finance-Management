@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "../components/layout/Sidebar";
 import Navbar from "../components/layout/Navbar";
@@ -12,6 +12,8 @@ const MainLayout = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const location = useLocation();
+  const desktopContentRef = useRef(null);
+  const mobileContentRef = useRef(null);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -27,15 +29,31 @@ const MainLayout = () => {
   }, []);
 
   useEffect(() => {
-    if (isReady) {
-      gsap.from(".page-content", {
-        opacity: 0,
-        y: 20,
-        duration: 0.4,
-        ease: "power2.out",
-      });
-    }
-  }, [location, isReady]);
+    if (!isReady) return;
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    if (prefersReducedMotion) return;
+
+    const target = isMobile ? mobileContentRef.current : desktopContentRef.current;
+    if (!target) return;
+
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        target,
+        { opacity: 0, y: 12 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.3,
+          ease: "power2.out",
+          clearProps: "transform,opacity",
+        }
+      );
+    });
+
+    return () => ctx.revert();
+  }, [location.pathname, isReady, isMobile]);
 
   const toggleSidebar = () => {
     setIsSidebarOpen((prev) => !prev);
@@ -43,20 +61,30 @@ const MainLayout = () => {
 
   if (!isReady) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-950">
+      <div
+        className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-950"
+        role="status"
+        aria-live="polite"
+      >
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">{t('common.loading')}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t("common.loading")}
+          </p>
         </div>
       </div>
     );
   }
 
-  // Desktop: sidebar width
-  const sidebarWidth = isSidebarOpen ? 280 : 80;
+  // Sinkron dengan Sidebar: w-72 (288px) saat terbuka, w-20 (80px) saat ringkas
+  const sidebarWidth = isSidebarOpen ? 288 : 80;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 overflow-x-hidden">
+      <a href="#main-content" className="skip-link">
+        {t("common.skip_to_content") || "Skip to main content"}
+      </a>
+
       {/* ===== DESKTOP ===== */}
       <div className="hidden md:block">
         {/* Sidebar - fixed */}
@@ -68,9 +96,9 @@ const MainLayout = () => {
           />
         </div>
 
-        {/* Header - fixed, margin left mengikuti sidebar */}
+        {/* Header - fixed, mengikuti lebar sidebar */}
         <div
-          className="fixed top-0 right-0 z-30 transition-all duration-300"
+          className="fixed top-0 right-0 z-30 transition-[left] duration-300 ease-in-out"
           style={{ left: sidebarWidth }}
         >
           <Navbar
@@ -80,15 +108,20 @@ const MainLayout = () => {
           />
         </div>
 
-        {/* Main Content - padding top = header height, padding left = sidebar width */}
+        {/* Main Content */}
         <main
-          className="min-h-screen transition-all duration-300"
+          id={!isMobile ? "main-content" : undefined}
+          tabIndex={-1}
+          className="min-h-screen transition-[padding-left] duration-300 ease-in-out focus:outline-none"
           style={{
-            paddingTop: "64px", // h-16
+            paddingTop: "64px",
             paddingLeft: sidebarWidth,
           }}
         >
-          <div className="p-4 md:p-6 lg:p-8 page-content">
+          <div
+            ref={desktopContentRef}
+            className="page-content mx-auto w-full max-w-[1440px] p-5 md:p-6 lg:p-8"
+          >
             <Outlet />
           </div>
         </main>
@@ -105,9 +138,13 @@ const MainLayout = () => {
           />
         </div>
 
-        {/* Main Content - padding top = header height, padding bottom = bottom nav */}
-        <main className="flex-1 pt-16 pb-20">
-          <div className="p-4 page-content">
+        {/* Main Content */}
+        <main
+          id={isMobile ? "main-content" : undefined}
+          tabIndex={-1}
+          className="flex-1 pt-16 pb-24 focus:outline-none"
+        >
+          <div ref={mobileContentRef} className="page-content p-4">
             <Outlet />
           </div>
         </main>

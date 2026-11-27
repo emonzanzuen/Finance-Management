@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTranslation } from "../../hooks/useTranslation";
@@ -39,26 +39,49 @@ const MobileNav = () => {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const { t } = useTranslation();
+  const drawerRef = useRef(null);
 
   // Tutup drawer saat pindah halaman
   useEffect(() => {
     setIsDrawerOpen(false);
-  }, [location]);
+  }, [location.pathname]);
 
-  // Animasi GSAP untuk drawer
+  // Tutup drawer dengan tombol Escape
   useEffect(() => {
-    if (isDrawerOpen) {
-      gsap.set(".mobile-nav-item", { opacity: 0, x: -20 });
-      gsap.to(".mobile-nav-item", {
-        opacity: 1,
-        x: 0,
-        duration: 0.4,
-        stagger: 0.05,
-        ease: "power2.out",
-        delay: 0.1,
-        clearProps: "opacity",
-      });
-    }
+    if (!isDrawerOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setIsDrawerOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isDrawerOpen]);
+
+  // Animasi GSAP untuk drawer dengan dukungan reduced motion
+  useEffect(() => {
+    if (!isDrawerOpen || !drawerRef.current) return;
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    if (prefersReducedMotion) return;
+
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        ".mobile-nav-item",
+        { opacity: 0, x: -14 },
+        {
+          opacity: 1,
+          x: 0,
+          duration: 0.25,
+          stagger: 0.03,
+          ease: "power2.out",
+          clearProps: "transform,opacity",
+        }
+      );
+    }, drawerRef);
+
+    return () => ctx.revert();
   }, [isDrawerOpen]);
 
   const handleLogout = () => {
@@ -67,14 +90,13 @@ const MobileNav = () => {
   };
 
   const toggleDrawer = () => {
-    setIsDrawerOpen(!isDrawerOpen);
+    setIsDrawerOpen((prev) => !prev);
   };
 
   const closeDrawer = () => {
     setIsDrawerOpen(false);
   };
 
-  // Helper untuk cek path aktif
   const isActivePath = (path) => location.pathname === path;
 
   return (
@@ -82,62 +104,88 @@ const MobileNav = () => {
       {/* Overlay */}
       {isDrawerOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40"
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px]"
           onClick={closeDrawer}
+          aria-hidden="true"
         />
       )}
 
       {/* Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
-        <div className="flex items-center justify-around px-2 py-2">
+      <nav
+        aria-label="Navigasi bawah"
+        className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200/90 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md dark:border-gray-800/90 dark:bg-gray-900/95 md:hidden"
+      >
+        <div className="flex items-center justify-around px-2 py-1.5">
           {menuItems.slice(0, 4).map((item) => {
             const active = isActivePath(item.path);
             return (
               <NavLink
                 key={item.path}
                 to={item.path}
-                className={`
-                  flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-all duration-200
-                  ${active
+                aria-current={active ? "page" : undefined}
+                className={`flex min-w-[56px] flex-col items-center gap-0.5 rounded-xl px-2.5 py-1.5 transition-colors duration-200 ${
+                  active
                     ? "text-primary-600 dark:text-primary-400"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                  }
-                `}
+                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                }`}
               >
-                <item.icon className="w-5 h-5" />
-                <span className="text-[10px] font-medium">{t(`nav.${item.labelKey}`)}</span>
+                <item.icon className="h-5 w-5" aria-hidden="true" />
+                <span className="text-[10px] font-medium leading-tight">
+                  {t(`nav.${item.labelKey}`)}
+                </span>
               </NavLink>
             );
           })}
           <button
+            type="button"
             onClick={toggleDrawer}
-            className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+            aria-expanded={isDrawerOpen}
+            aria-controls="mobile-more-drawer"
+            aria-label={t("nav.more") || "Menu lainnya"}
+            className={`flex min-w-[56px] flex-col items-center gap-0.5 rounded-xl px-2.5 py-1.5 transition-colors duration-200 ${
+              isDrawerOpen
+                ? "text-primary-600 dark:text-primary-400"
+                : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            }`}
           >
-            <Menu className="w-5 h-5" />
-            <span className="text-[10px] font-medium">{t('nav.more')}</span>
+            <Menu className="h-5 w-5" aria-hidden="true" />
+            <span className="text-[10px] font-medium leading-tight">
+              {t("nav.more")}
+            </span>
           </button>
         </div>
       </nav>
 
       {/* Drawer */}
       {isDrawerOpen && (
-        <div className="fixed bottom-16 left-0 right-0 z-50 bg-white dark:bg-gray-900 rounded-t-2xl shadow-2xl border border-gray-200 dark:border-gray-800 md:hidden max-h-[70vh] overflow-y-auto">
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 rounded-t-2xl sticky top-0 z-10">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-white" />
+        <div
+          id="mobile-more-drawer"
+          ref={drawerRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("nav.more") || "Menu lainnya"}
+          className="fixed bottom-16 left-0 right-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900 md:hidden"
+        >
+          <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-2xl border-b border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 shadow-sm">
+                <TrendingUp className="h-4 w-4 text-white" aria-hidden="true" />
               </div>
-              <span className="font-bold text-gray-900 dark:text-white">{t('app.name')}</span>
+              <span className="font-bold tracking-tight text-gray-900 dark:text-white">
+                {t("app.name")}
+              </span>
             </div>
             <button
+              type="button"
               onClick={closeDrawer}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label={t("common.close") || "Tutup menu"}
+              className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
             >
-              <X className="w-5 h-5 text-gray-500" />
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
 
-          <div className="p-4 space-y-1 bg-white dark:bg-gray-900 pb-6">
+          <div className="space-y-1 bg-white p-4 pb-6 dark:bg-gray-900">
             {menuItems.map((item) => {
               const active = isActivePath(item.path);
               return (
@@ -145,33 +193,34 @@ const MobileNav = () => {
                   key={item.path}
                   to={item.path}
                   onClick={closeDrawer}
-                  className={`
-                    mobile-nav-item flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
-                    ${active
-                      ? "bg-primary-50 dark:bg-primary-950 text-primary-700 dark:text-primary-400"
-                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                    }
-                  `}
-                  style={{ opacity: 1 }}
+                  aria-current={active ? "page" : undefined}
+                  className={`mobile-nav-item flex items-center gap-3 rounded-xl px-4 py-3 text-sm transition-colors duration-200 ${
+                    active
+                      ? "bg-primary-50 font-semibold text-primary-700 dark:bg-primary-950 dark:text-primary-400"
+                      : "font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                  }`}
                 >
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
-                  <span className="font-medium text-sm">{t(`nav.${item.labelKey}`)}</span>
+                  <item.icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+                  <span>{t(`nav.${item.labelKey}`)}</span>
                   {active && (
-                    <div className="ml-auto w-1.5 h-6 rounded-full bg-primary-600 flex-shrink-0" />
+                    <div
+                      className="ml-auto h-6 w-1.5 flex-shrink-0 rounded-full bg-primary-600"
+                      aria-hidden="true"
+                    />
                   )}
                 </NavLink>
               );
             })}
 
-            <div className="border-t border-gray-200 dark:border-gray-800 my-2" />
+            <div className="my-2 border-t border-gray-200 dark:border-gray-800" />
 
             <button
+              type="button"
               onClick={handleLogout}
-              className="mobile-nav-item flex items-center gap-3 w-full px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 transition-all duration-200"
-              style={{ opacity: 1 }}
+              className="mobile-nav-item flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-600 transition-colors duration-200 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/50"
             >
-              <LogOut className="w-5 h-5 flex-shrink-0" />
-              <span className="font-medium text-sm">{t('auth.logout')}</span>
+              <LogOut className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+              <span>{t("auth.logout")}</span>
             </button>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useId, useRef } from "react";
 import { X } from "lucide-react";
 import { gsap } from "gsap";
 
@@ -15,30 +15,57 @@ const Modal = ({
 }) => {
   const modalRef = useRef(null);
   const overlayRef = useRef(null);
+  const previousFocusRef = useRef(null);
+  const titleId = useId();
 
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-      
-      gsap.fromTo(
-        overlayRef.current,
-        { opacity: 0 },
-        { opacity: 1, duration: 0.3 }
-      );
-      
-      gsap.fromTo(
-        modalRef.current,
-        { opacity: 0, scale: 0.9, y: 20 },
-        { opacity: 1, scale: 1, y: 0, duration: 0.3, ease: "power2.out" }
-      );
-    } else {
-      document.body.style.overflow = "unset";
+    if (!isOpen) return;
+
+    previousFocusRef.current = document.activeElement;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && onClose) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    let ctx;
+    if (!prefersReducedMotion && overlayRef.current && modalRef.current) {
+      ctx = gsap.context(() => {
+        gsap.fromTo(overlayRef.current, { opacity: 0 }, { opacity: 1, duration: 0.2 });
+        gsap.fromTo(
+          modalRef.current,
+          { opacity: 0, scale: 0.96, y: 12 },
+          {
+            opacity: 1,
+            scale: 1,
+            y: 0,
+            duration: 0.22,
+            ease: "power2.out",
+            clearProps: "transform",
+          }
+        );
+      });
     }
 
+    modalRef.current?.focus();
+
     return () => {
-      document.body.style.overflow = "unset";
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = prevOverflow || "";
+      ctx?.revert();
+      if (previousFocusRef.current && typeof previousFocusRef.current.focus === "function") {
+        previousFocusRef.current.focus();
+      }
     };
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -51,7 +78,7 @@ const Modal = ({
   };
 
   const handleOverlayClick = (e) => {
-    if (closeOnOverlayClick && e.target === overlayRef.current) {
+    if (closeOnOverlayClick && e.target === overlayRef.current && onClose) {
       onClose();
     }
   };
@@ -59,41 +86,45 @@ const Modal = ({
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
       onClick={handleOverlayClick}
     >
       <div
         ref={modalRef}
-        className={`
-          relative bg-white dark:bg-gray-900 rounded-2xl 
-          w-full ${sizes[size]} max-h-[90vh] 
-          shadow-2xl overflow-hidden
-          ${className}
-        `}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        tabIndex={-1}
+        className={`relative flex max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-2xl focus:outline-none dark:border-gray-800 dark:bg-gray-900 ${
+          sizes[size] || sizes.md
+        } ${className}`}
       >
         {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200/90 bg-white px-5 py-4 dark:border-gray-800 dark:bg-gray-900 sm:px-6">
+          <h3
+            id={titleId}
+            className="truncate pr-4 text-lg font-semibold tracking-tight text-gray-900 dark:text-white"
+          >
             {title}
           </h3>
           {showCloseButton && (
             <button
+              type="button"
               onClick={onClose}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label="Tutup dialog"
+              className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
             >
-              <X className="w-5 h-5 text-gray-500" />
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
         </div>
 
         {/* Body */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
-          {children}
-        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
 
         {/* Footer */}
         {footer && (
-          <div className="sticky bottom-0 p-6 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+          <div className="flex-shrink-0 border-t border-gray-200/90 bg-gray-50/70 px-5 py-4 dark:border-gray-800 dark:bg-gray-900/90 sm:px-6">
             {footer}
           </div>
         )}

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTranslation } from "../../hooks/useTranslation";
@@ -39,9 +39,20 @@ const Sidebar = ({ isOpen, setIsOpen, isMobile }) => {
   const { logout } = useAuth();
   const { t } = useTranslation();
 
+  useEffect(() => {
+    if (!isMobile || !isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isMobile, isOpen, setIsOpen]);
+
   const handleLogout = () => {
     logout();
-    toast.success(t('auth.logout_success') || "Berhasil keluar!");
+    toast.success(t("auth.logout_success") || "Berhasil keluar!");
     navigate("/login", { replace: true });
   };
 
@@ -59,34 +70,45 @@ const Sidebar = ({ isOpen, setIsOpen, isMobile }) => {
       <>
         {isOpen && (
           <div
-            className="fixed inset-0 bg-black/50 z-40"
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px]"
             onClick={() => setIsOpen(false)}
+            aria-hidden="true"
           />
         )}
         <aside
-          className={`fixed top-0 left-0 h-full w-72 z-50 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col transition-transform duration-300 ease-in-out ${
+          aria-label="Sidebar navigation"
+          className={`fixed top-0 left-0 z-50 flex h-full w-72 flex-col border-r border-gray-200 bg-white transition-transform duration-300 ease-in-out dark:border-gray-800 dark:bg-gray-900 ${
             isOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
-          <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center flex-shrink-0">
-                <TrendingUp className="w-5 h-5 text-white" />
+          <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-gray-200 px-4 dark:border-gray-800">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 shadow-sm">
+                <TrendingUp className="h-5 w-5 text-white" aria-hidden="true" />
               </div>
-              <div>
-                <h1 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">
-                  {t('app.name')}
-                </h1>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">
-                  {t('app.tagline')}
+              <div className="min-w-0">
+                <p className="truncate text-lg font-bold leading-tight tracking-tight text-gray-900 dark:text-white">
+                  {t("app.name")}
+                </p>
+                <p className="truncate text-[11px] leading-tight text-gray-500 dark:text-gray-400">
+                  {t("app.tagline")}
                 </p>
               </div>
             </div>
-            <button onClick={() => setIsOpen(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-              <X className="w-5 h-5 text-gray-500" />
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              aria-label={t("common.close") || "Tutup menu"}
+              className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+            >
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
-          <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
+
+          <nav
+            aria-label="Menu utama"
+            className="flex-1 space-y-1 overflow-y-auto px-3 py-3"
+          >
             {menuItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (
@@ -94,26 +116,34 @@ const Sidebar = ({ isOpen, setIsOpen, isMobile }) => {
                   key={item.path}
                   to={item.path}
                   onClick={handleLinkClick}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
+                  aria-current={isActive ? "page" : undefined}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${
                     isActive
-                      ? "bg-primary-50 dark:bg-primary-950 text-primary-700 dark:text-primary-400"
-                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                      ? "bg-primary-50 font-semibold text-primary-700 dark:bg-primary-950 dark:text-primary-400"
+                      : "font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
                   }`}
                 >
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
-                  <span className="font-medium text-sm">{t(item.labelKey)}</span>
-                  {isActive && <div className="ml-auto w-1 h-6 rounded-full bg-primary-600" />}
+                  <item.icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+                  <span className="truncate">{t(item.labelKey)}</span>
+                  {isActive && (
+                    <div
+                      className="ml-auto h-6 w-1 flex-shrink-0 rounded-full bg-primary-600"
+                      aria-hidden="true"
+                    />
+                  )}
                 </NavLink>
               );
             })}
           </nav>
-          <div className="p-3 border-t border-gray-200 dark:border-gray-800 flex-shrink-0">
+
+          <div className="flex-shrink-0 border-t border-gray-200 p-3 dark:border-gray-800">
             <button
+              type="button"
               onClick={handleLogout}
-              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 transition-all duration-200"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 transition-all duration-200 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/50"
             >
-              <LogOut className="w-5 h-5 flex-shrink-0" />
-              <span className="font-medium text-sm">{t('auth.logout')}</span>
+              <LogOut className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+              <span>{t("auth.logout")}</span>
             </button>
           </div>
         </aside>
@@ -124,68 +154,88 @@ const Sidebar = ({ isOpen, setIsOpen, isMobile }) => {
   // Desktop
   return (
     <aside
-      className={`h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col transition-all duration-300 ease-in-out ${
+      id="desktop-sidebar"
+      aria-label="Sidebar navigation"
+      className={`flex h-full flex-col border-r border-gray-200/90 bg-white transition-all duration-300 ease-in-out dark:border-gray-800/90 dark:bg-gray-900 ${
         isOpen ? "w-72" : "w-20"
       }`}
     >
       <div
-        className={`flex items-center h-16 px-4 border-b border-gray-200 dark:border-gray-800 ${
+        className={`flex h-16 flex-shrink-0 items-center border-b border-gray-200/90 px-4 dark:border-gray-800/90 ${
           isIconOnly ? "justify-center" : "justify-between"
-        } flex-shrink-0`}
+        }`}
       >
         {!isIconOnly ? (
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center flex-shrink-0">
-              <TrendingUp className="w-5 h-5 text-white" />
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 shadow-sm">
+              <TrendingUp className="h-5 w-5 text-white" aria-hidden="true" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-lg font-bold text-gray-900 dark:text-white leading-tight truncate">
-                {t('app.name')}
-              </h1>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight truncate">
-                {t('app.tagline')}
+              <p className="truncate text-lg font-bold leading-tight tracking-tight text-gray-900 dark:text-white">
+                {t("app.name")}
+              </p>
+              <p className="truncate text-[11px] leading-tight text-gray-500 dark:text-gray-400">
+                {t("app.tagline")}
               </p>
             </div>
           </div>
         ) : (
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center flex-shrink-0">
-            <TrendingUp className="w-5 h-5 text-white" />
+          <div
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 shadow-sm"
+            title={t("app.name")}
+          >
+            <TrendingUp className="h-5 w-5 text-white" aria-hidden="true" />
           </div>
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
+      <nav
+        aria-label="Menu utama"
+        className="flex-1 space-y-1 overflow-y-auto px-3 py-3"
+      >
         {menuItems.map((item) => {
           const isActive = location.pathname === item.path;
+          const label = t(item.labelKey);
           return (
             <NavLink
               key={item.path}
               to={item.path}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
+              aria-current={isActive ? "page" : undefined}
+              aria-label={isIconOnly ? label : undefined}
+              title={isIconOnly ? label : undefined}
+              className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${
                 isActive
-                  ? "bg-primary-50 dark:bg-primary-950 text-primary-700 dark:text-primary-400"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-              } ${isIconOnly ? "justify-center" : ""} group relative`}
-              title={isIconOnly ? t(item.labelKey) : ""}
+                  ? "bg-primary-50 font-semibold text-primary-700 dark:bg-primary-950 dark:text-primary-400"
+                  : "font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+              } ${isIconOnly ? "justify-center" : ""}`}
             >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              {!isIconOnly && <span className="font-medium text-sm whitespace-nowrap">{t(item.labelKey)}</span>}
-              {isActive && !isIconOnly && <div className="ml-auto w-1 h-6 rounded-full bg-primary-600 flex-shrink-0" />}
+              <item.icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+              {!isIconOnly && (
+                <span className="whitespace-nowrap truncate">{label}</span>
+              )}
+              {isActive && !isIconOnly && (
+                <div
+                  className="ml-auto h-6 w-1 flex-shrink-0 rounded-full bg-primary-600"
+                  aria-hidden="true"
+                />
+              )}
             </NavLink>
           );
         })}
       </nav>
 
-      <div className="p-3 border-t border-gray-200 dark:border-gray-800 flex-shrink-0">
+      <div className="flex-shrink-0 border-t border-gray-200/90 p-3 dark:border-gray-800/90">
         <button
+          type="button"
           onClick={handleLogout}
-          className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 transition-all duration-200 ${
+          aria-label={isIconOnly ? t("auth.logout") : undefined}
+          title={isIconOnly ? t("auth.logout") : undefined}
+          className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 transition-all duration-200 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/50 ${
             isIconOnly ? "justify-center" : ""
-          } group`}
-          title={isIconOnly ? t('auth.logout') : ""}
+          }`}
         >
-          <LogOut className="w-5 h-5 flex-shrink-0" />
-          {!isIconOnly && <span className="font-medium text-sm">{t('auth.logout')}</span>}
+          <LogOut className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+          {!isIconOnly && <span>{t("auth.logout")}</span>}
         </button>
       </div>
     </aside>

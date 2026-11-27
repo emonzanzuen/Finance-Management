@@ -1,6 +1,46 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from "lucide-react";
 import { gsap } from "gsap";
+
+const POSITIONS = {
+  "top-right": "top-4 right-4",
+  "top-left": "top-4 left-4",
+  "bottom-right": "bottom-4 right-4",
+  "bottom-left": "bottom-4 left-4",
+  "top-center": "top-4 left-1/2 -translate-x-1/2",
+  "bottom-center": "bottom-4 left-1/2 -translate-x-1/2",
+};
+
+const VARIANTS = {
+  success: {
+    bg: "bg-emerald-500",
+    icon: CheckCircle,
+    iconBg: "bg-emerald-400/30",
+    role: "status",
+    ariaLive: "polite",
+  },
+  error: {
+    bg: "bg-rose-500",
+    icon: AlertCircle,
+    iconBg: "bg-rose-400/30",
+    role: "alert",
+    ariaLive: "assertive",
+  },
+  warning: {
+    bg: "bg-amber-500",
+    icon: AlertTriangle,
+    iconBg: "bg-amber-400/30",
+    role: "alert",
+    ariaLive: "polite",
+  },
+  info: {
+    bg: "bg-indigo-500",
+    icon: Info,
+    iconBg: "bg-indigo-400/30",
+    role: "status",
+    ariaLive: "polite",
+  },
+};
 
 const Toast = ({
   message,
@@ -9,74 +49,74 @@ const Toast = ({
   onClose,
   position = "top-right",
 }) => {
-  const toastRef = React.useRef(null);
+  const toastRef = useRef(null);
 
   useEffect(() => {
-    gsap.from(toastRef.current, {
-      x: 50,
-      opacity: 0,
-      duration: 0.4,
-      ease: "power2.out",
-    });
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    let ctx;
+    if (!prefersReducedMotion && toastRef.current) {
+      ctx = gsap.context(() => {
+        gsap.fromTo(
+          toastRef.current,
+          { x: 32, opacity: 0 },
+          { x: 0, opacity: 1, duration: 0.28, ease: "power2.out" }
+        );
+      });
+    }
 
     const timer = setTimeout(() => {
-      gsap.to(toastRef.current, {
-        x: 50,
-        opacity: 0,
-        duration: 0.3,
-        ease: "power2.in",
-        onComplete: onClose,
-      });
+      if (!prefersReducedMotion && toastRef.current) {
+        gsap.to(toastRef.current, {
+          x: 32,
+          opacity: 0,
+          duration: 0.22,
+          ease: "power2.in",
+          onComplete: () => onClose?.(),
+        });
+      } else {
+        onClose?.();
+      }
     }, duration);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      ctx?.revert();
+    };
   }, [duration, onClose]);
 
-  const variants = {
-    success: {
-      bg: "bg-emerald-500",
-      icon: CheckCircle,
-      iconBg: "bg-emerald-400/30",
-    },
-    error: {
-      bg: "bg-rose-500",
-      icon: AlertCircle,
-      iconBg: "bg-rose-400/30",
-    },
-    warning: {
-      bg: "bg-amber-500",
-      icon: AlertTriangle,
-      iconBg: "bg-amber-400/30",
-    },
-    info: {
-      bg: "bg-indigo-500",
-      icon: Info,
-      iconBg: "bg-indigo-400/30",
-    },
-  };
-
-  const Icon = variants[type].icon;
+  const activeVariant = VARIANTS[type] || VARIANTS.info;
+  const positionClass = POSITIONS[position] || POSITIONS["top-right"];
+  const Icon = activeVariant.icon;
 
   return (
     <div
       ref={toastRef}
-      className={`
-        fixed z-50 top-4 right-4
-        flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg
-        text-white min-w-[280px] max-w-md
-        ${variants[type].bg}
-      `}
+      role={activeVariant.role}
+      aria-live={activeVariant.ariaLive}
+      className={`fixed z-50 flex w-[calc(100vw-2rem)] max-w-md items-center gap-3 rounded-xl px-4 py-3 text-white shadow-lg ring-1 ring-black/10 sm:w-auto sm:min-w-[300px] ${positionClass} ${activeVariant.bg}`}
     >
-      <div className={`p-1.5 rounded-lg ${variants[type].iconBg}`}>
-        <Icon className="w-4 h-4" />
-      </div>
-      <p className="flex-1 text-sm font-medium">{message}</p>
-      <button
-        onClick={onClose}
-        className="p-1 rounded-lg hover:bg-white/20 transition-colors"
+      <div
+        className={`flex-shrink-0 rounded-lg p-1.5 ${activeVariant.iconBg}`}
+        aria-hidden="true"
       >
-        <X className="w-4 h-4" />
-      </button>
+        <Icon className="h-4 w-4" />
+      </div>
+      <p className="min-w-0 flex-1 text-sm font-medium leading-snug">
+        {message}
+      </p>
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Tutup notifikasi"
+          className="flex-shrink-0 rounded-lg p-1.5 text-white/90 transition-colors hover:bg-white/20 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
+        </button>
+      )}
     </div>
   );
 };

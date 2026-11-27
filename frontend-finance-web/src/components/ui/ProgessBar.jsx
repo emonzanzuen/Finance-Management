@@ -1,7 +1,7 @@
 import React from "react";
 
 const ProgressBar = ({
-  value,
+  value = 0,
   max = 100,
   label = null,
   showPercentage = true,
@@ -10,7 +10,9 @@ const ProgressBar = ({
   animated = true,
   className = "",
 }) => {
-  const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
+  const safeMax = max > 0 ? max : 100;
+  const safeValue = Number.isFinite(Number(value)) ? Number(value) : 0;
+  const percentage = Math.min(Math.max((safeValue / safeMax) * 100, 0), 100);
 
   const sizes = {
     sm: "h-1.5",
@@ -40,22 +42,33 @@ const ProgressBar = ({
   return (
     <div className={`w-full ${className}`}>
       {(label || showPercentage) && (
-        <div className="flex justify-between items-center mb-1.5">
+        <div className="mb-1.5 flex items-center justify-between gap-2">
           {label && (
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <span className="truncate text-sm font-medium text-gray-700 dark:text-gray-300">
               {label}
             </span>
           )}
           {showPercentage && (
-            <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+            <span className="tabular-nums-finance ml-auto flex-shrink-0 text-xs font-semibold text-gray-600 dark:text-gray-400">
               {percentage.toFixed(1)}%
             </span>
           )}
         </div>
       )}
-      <div className={`w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden ${sizes[size]}`}>
+      <div
+        role="progressbar"
+        aria-label={label || "Progress"}
+        aria-valuemin={0}
+        aria-valuemax={safeMax}
+        aria-valuenow={Math.round(safeValue)}
+        className={`w-full overflow-hidden rounded-full bg-gray-200/90 dark:bg-gray-800 ${
+          sizes[size] || sizes.md
+        }`}
+      >
         <div
-          className={`${getColor()} rounded-full transition-all duration-700 ease-out ${animated ? "animate-pulse" : ""}`}
+          className={`${getColor()} h-full rounded-full transition-[width] duration-500 ease-out ${
+            animated ? "motion-safe:transition-all" : ""
+          }`}
           style={{ width: `${percentage}%` }}
         />
       </div>

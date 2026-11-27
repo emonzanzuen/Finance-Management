@@ -5,14 +5,41 @@
 @tailwind utilities;
 
 /* ============================================================
-   CSS VARIABLES
+   CSS VARIABLES & DESIGN TOKENS (Mempertahankan palet existing)
    ============================================================ */
 :root {
-  --sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Surface & Canvas */
+  --surface-canvas: #f9fafb;
+  --surface-card: #ffffff;
+  --surface-subtle: #f3f4f6;
+  --border-subtle: rgba(229, 231, 235, 0.9);
+  --border-strong: #d1d5db;
+
+  /* Radius */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
   --radius: 1rem;
+
+  /* Elevation */
+  --shadow-card: 0 1px 2px 0 rgba(17, 24, 39, 0.04), 0 1px 3px 0 rgba(17, 24, 39, 0.03);
+  --shadow-card-hover: 0 8px 24px -6px rgba(17, 24, 39, 0.08), 0 2px 6px -2px rgba(17, 24, 39, 0.04);
   --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  --shadow-card: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Motion */
+  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dark {
+  --surface-canvas: #030712;
+  --surface-card: #111827;
+  --surface-subtle: #1f2937;
+  --border-subtle: rgba(31, 41, 55, 0.9);
+  --border-strong: #374151;
+  --shadow-card: 0 1px 2px 0 rgba(0, 0, 0, 0.25);
+  --shadow-card-hover: 0 10px 25px -5px rgba(0, 0, 0, 0.45);
 }
 
 /* ============================================================
@@ -21,6 +48,11 @@
 @layer base {
   * {
     @apply m-0 p-0 box-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
   }
 
   html,
@@ -35,6 +67,8 @@
   body {
     @apply bg-gray-50 text-gray-900 antialiased;
     font-family: var(--sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    line-height: 1.5;
   }
 
   .dark body {
@@ -46,11 +80,7 @@
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    background-color: #f9fafb;
-  }
-
-  .dark #root {
-    background-color: #030712;
+    background-color: var(--surface-canvas);
   }
 
   /* ===== SCROLLBAR GLOBAL ===== */
@@ -130,13 +160,13 @@
     @apply bg-primary-400/30 text-primary-100;
   }
 
-  /* ===== FOCUS ===== */
+  /* ===== FOCUS KEYBOARD ===== */
   :focus-visible {
     @apply outline-none ring-2 ring-primary-500 ring-offset-2 ring-offset-white;
   }
 
   .dark :focus-visible {
-    @apply ring-offset-gray-950;
+    @apply ring-primary-400 ring-offset-gray-950;
   }
 }
 
@@ -144,50 +174,60 @@
    COMPONENTS LAYER
    ============================================================ */
 @layer components {
-  /* ----- Cards ----- */
+  /* ----- Skip Link (Aksesibilitas Keyboard) ----- */
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-xl focus:bg-primary-600 focus:text-white focus:text-sm focus:font-medium focus:shadow-lg;
+  }
+
+  /* ----- Cards & Surfaces ----- */
   .card {
-    @apply bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200/80 dark:border-gray-800/80 p-5 transition-all duration-200;
+    @apply bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/90 dark:border-gray-800/90 p-5 sm:p-6 transition-all duration-200;
+    box-shadow: var(--shadow-card);
   }
 
   .card-hover {
-    @apply hover:shadow-md hover:border-primary-200 dark:hover:border-primary-800;
+    @apply hover:border-primary-200 dark:hover:border-primary-800;
+  }
+
+  .card-hover:hover {
+    box-shadow: var(--shadow-card-hover);
   }
 
   .card-glass {
-    @apply bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-gray-800/50;
+    @apply bg-white/85 dark:bg-gray-900/85 backdrop-blur-xl border border-gray-200/70 dark:border-gray-800/70;
   }
 
   /* ----- Buttons ----- */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 min-h-[40px] px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-950 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
   }
 
   .btn-primary {
-    @apply bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500 dark:bg-primary-500 dark:hover:bg-primary-600;
+    @apply bg-primary-600 text-white shadow-sm hover:bg-primary-700 focus-visible:ring-primary-500 dark:bg-primary-500 dark:hover:bg-primary-600;
   }
 
   .btn-secondary {
-    @apply bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-400 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700;
+    @apply bg-gray-100 text-gray-900 border border-gray-200 hover:bg-gray-200/80 focus-visible:ring-gray-400 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700 dark:hover:bg-gray-700;
   }
 
   .btn-success {
-    @apply bg-success text-white hover:bg-success/90 focus:ring-success/50;
+    @apply bg-success text-white shadow-sm hover:bg-success/90 focus-visible:ring-success/50;
   }
 
   .btn-danger {
-    @apply bg-danger text-white hover:bg-danger/90 focus:ring-danger/50;
+    @apply bg-danger text-white shadow-sm hover:bg-danger/90 focus-visible:ring-danger/50;
   }
 
   .btn-warning {
-    @apply bg-warning text-white hover:bg-warning/90 focus:ring-warning/50;
+    @apply bg-warning text-white shadow-sm hover:bg-warning/90 focus-visible:ring-warning/50;
   }
 
   .btn-info {
-    @apply bg-info text-white hover:bg-info/90 focus:ring-info/50;
+    @apply bg-info text-white shadow-sm hover:bg-info/90 focus-visible:ring-info/50;
   }
 
   .btn-outline {
-    @apply border-2 border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800;
+    @apply border border-gray-300 bg-transparent text-gray-700 hover:bg-gray-100 hover:border-gray-400 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800 dark:hover:border-gray-600;
   }
 
   .btn-ghost {
@@ -195,32 +235,29 @@
   }
 
   .btn-sm {
-    @apply px-3 py-1.5 text-xs;
+    @apply min-h-[34px] px-3 py-1.5 text-xs rounded-lg;
   }
 
   .btn-lg {
-    @apply px-6 py-3 text-base;
+    @apply min-h-[46px] px-6 py-3 text-base;
   }
 
-  /* ----- Inputs ----- */
-  .input-field {
-    @apply w-full px-4 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all duration-200;
-  }
-
+  /* ----- Inputs & Form Fields ----- */
+  .input-field,
   .input {
-    @apply w-full px-3 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all duration-200;
+    @apply w-full min-h-[42px] px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 hover:border-gray-400 dark:hover:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500/25 focus:border-primary-500 dark:focus:border-primary-400 disabled:bg-gray-100 dark:disabled:bg-gray-800/60 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors duration-200;
   }
 
   .input-field-error {
-    @apply border-danger focus:ring-danger/50 focus:border-danger;
+    @apply border-danger focus:ring-danger/25 focus:border-danger;
   }
 
   .input-field-sm {
-    @apply px-3 py-1.5 text-xs;
+    @apply min-h-[34px] px-3 py-1.5 text-xs rounded-lg;
   }
 
   .input-field-lg {
-    @apply px-5 py-3 text-base;
+    @apply min-h-[48px] px-4 py-3 text-base;
   }
 
   .label {
@@ -229,7 +266,7 @@
 
   /* ----- Badges ----- */
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium tracking-tight;
   }
 
   .badge-success {
@@ -249,11 +286,11 @@
   }
 
   .badge-gray {
-    @apply bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-200;
+    @apply bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200;
   }
 
   .badge-primary {
-    @apply bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200;
+    @apply bg-primary-100 text-primary-800 dark:bg-primary-900/60 dark:text-primary-200;
   }
 
   /* ----- Forms ----- */
@@ -272,56 +309,60 @@
 
   /* ----- Tables ----- */
   .table-container {
-    @apply overflow-x-auto;
+    @apply overflow-x-auto rounded-xl border border-gray-200/80 dark:border-gray-800/80;
   }
 
   .table {
-    @apply w-full text-sm;
+    @apply w-full text-sm border-collapse;
   }
 
   .table thead {
-    @apply border-b border-gray-200 dark:border-gray-800;
+    @apply bg-gray-50/80 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-800;
   }
 
   .table th {
-    @apply text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider py-3 px-4;
+    @apply text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider py-3 px-4 whitespace-nowrap;
   }
 
   .table td {
-    @apply py-3 px-4;
+    @apply py-3.5 px-4 text-gray-700 dark:text-gray-200 align-middle;
   }
 
   .table tbody tr {
-    @apply border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors;
+    @apply border-b border-gray-100 dark:border-gray-800/80 last:border-b-0 hover:bg-gray-50/80 dark:hover:bg-gray-800/40 transition-colors;
   }
 
-  /* ----- Page Header ----- */
+  /* ----- Typography & Page Header ----- */
   .page-header {
     @apply flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6;
   }
 
   .page-title {
-    @apply text-2xl font-bold text-gray-900 dark:text-white;
+    @apply text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white;
   }
 
   .page-subtitle {
-    @apply text-gray-500 dark:text-gray-400;
+    @apply text-sm text-gray-500 dark:text-gray-400 mt-0.5;
+  }
+
+  .section-title {
+    @apply text-base font-semibold tracking-tight text-gray-900 dark:text-white;
   }
 
   /* ----- Empty State ----- */
   .empty-state {
-    @apply text-center py-12;
+    @apply text-center py-12 px-4;
   }
 
   .empty-state-icon {
-    @apply w-12 h-12 text-gray-300 mx-auto mb-4;
+    @apply w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4;
   }
 
   .empty-state-text {
-    @apply text-gray-400;
+    @apply text-sm text-gray-500 dark:text-gray-400;
   }
 
-  /* ----- Scrollbar Hide ----- */
+  /* ----- Scrollbar Helpers ----- */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -331,7 +372,6 @@
     display: none;
   }
 
-  /* ----- Scrollbar Thin ----- */
   .scrollbar-thin {
     scrollbar-width: thin;
   }
@@ -372,7 +412,11 @@
   }
 
   .shadow-card {
-    @apply shadow-[0_4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)];
+    box-shadow: var(--shadow-card);
+  }
+
+  .tabular-nums-finance {
+    font-variant-numeric: tabular-nums;
   }
 
   .center {
@@ -422,7 +466,7 @@
 @keyframes scaleIn {
   from {
     opacity: 0;
-    transform: scale(0.95) translateY(10px);
+    transform: scale(0.96) translateY(8px);
   }
   to {
     opacity: 1;
@@ -448,11 +492,11 @@
 }
 
 .animate-fade-in {
-  animation: fade-in 0.3s ease-out;
+  animation: fade-in 0.25s ease-out;
 }
 
 .animate-slide-in-right {
-  animation: slide-in-right 0.3s ease-out;
+  animation: slide-in-right 0.25s ease-out;
 }
 
 /* ============================================================
@@ -470,6 +514,20 @@
   .page-content {
     padding-left: 1rem !important;
     padding-right: 1rem !important;
+  }
+}
+
+/* ============================================================
+   REDUCED MOTION (Aksesibilitas)
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -497,14 +555,8 @@
 }
 
 /* ============================================================
-   OVERLAY FIX (Hanya untuk Mobile)
+   OVERLAY & MODAL BASE
    ============================================================ */
-
-/*
-   ⚠️ HINDARI penggunaan selector berbasis class Tailwind.
-   Gunakan class utility sendiri untuk overlay.
-   Contoh: .modal-overlay, .drawer-overlay
-*/
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -514,33 +566,19 @@
   -webkit-backdrop-filter: blur(4px);
 }
 
-/* Backdrop filter fallback untuk browser yang tidak mendukung */
 @supports not (backdrop-filter: blur(4px)) {
   .modal-overlay {
     background-color: rgba(0, 0, 0, 0.7);
   }
 }
 
-/* ============================================================
-   BACKGROUND FALLBACK
-   ============================================================ */
 body,
 #root,
 .page-content,
 main {
-  background-color: #f9fafb;
+  background-color: var(--surface-canvas);
 }
 
-.dark body,
-.dark #root,
-.dark .page-content,
-.dark main {
-  background-color: #030712;
-}
-
-/* ============================================================
-   MODAL & POPUP BASE
-   ============================================================ */
 .modal-wrapper {
   position: fixed;
   inset: 0;
@@ -568,15 +606,15 @@ main {
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-modal);
   border: 1px solid #e5e7eb;
-  animation: scaleIn 0.25s ease-out;
+  animation: scaleIn 0.2s ease-out;
 }
 
 .dark .modal-content {
-  background-color: #1f2937;
-  border-color: #374151;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  background-color: #111827;
+  border-color: #1f2937;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.55);
 }
 
 .modal-header {
@@ -594,8 +632,8 @@ main {
 }
 
 .dark .modal-header {
-  background-color: #1f2937;
-  border-color: #374151;
+  background-color: #111827;
+  border-color: #1f2937;
 }
 
 .modal-body {
