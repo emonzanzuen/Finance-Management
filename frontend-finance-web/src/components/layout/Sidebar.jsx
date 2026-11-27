@@ -87,7 +87,7 @@ const Sidebar = ({ isOpen, setIsOpen, isMobile }) => {
                 <TrendingUp className="h-5 w-5 text-white" aria-hidden="true" />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-lg font-bold leading-tight tracking-tight text-gray-900 dark:text-white">
+                <p className="truncate text-base font-bold leading-tight tracking-tight text-gray-900 dark:text-white">
                   {t("app.name")}
                 </p>
                 <p className="truncate text-[11px] leading-tight text-gray-500 dark:text-gray-400">
@@ -107,7 +107,7 @@ const Sidebar = ({ isOpen, setIsOpen, isMobile }) => {
 
           <nav
             aria-label="Menu utama"
-            className="flex-1 space-y-1 overflow-y-auto px-3 py-3"
+            className="scrollbar-thin flex-1 space-y-0.5 overflow-y-auto px-3 py-2.5"
           >
             {menuItems.map((item) => {
               const isActive = location.pathname === item.path;
@@ -123,11 +123,11 @@ const Sidebar = ({ isOpen, setIsOpen, isMobile }) => {
                       : "font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
                   }`}
                 >
-                  <item.icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+                  <item.icon className="h-[18px] w-[18px] flex-shrink-0" aria-hidden="true" />
                   <span className="truncate">{t(item.labelKey)}</span>
                   {isActive && (
                     <div
-                      className="ml-auto h-6 w-1 flex-shrink-0 rounded-full bg-primary-600"
+                      className="ml-auto h-5 w-1 flex-shrink-0 rounded-full bg-primary-600"
                       aria-hidden="true"
                     />
                   )}
@@ -136,13 +136,13 @@ const Sidebar = ({ isOpen, setIsOpen, isMobile }) => {
             })}
           </nav>
 
-          <div className="flex-shrink-0 border-t border-gray-200 p-3 dark:border-gray-800">
+          <div className="flex-shrink-0 border-t border-gray-200 p-2.5 dark:border-gray-800">
             <button
               type="button"
               onClick={handleLogout}
               className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 transition-all duration-200 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/50"
             >
-              <LogOut className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+              <LogOut className="h-[18px] w-[18px] flex-shrink-0" aria-hidden="true" />
               <span>{t("auth.logout")}</span>
             </button>
           </div>
@@ -156,22 +156,22 @@ const Sidebar = ({ isOpen, setIsOpen, isMobile }) => {
     <aside
       id="desktop-sidebar"
       aria-label="Sidebar navigation"
-      className={`flex h-full flex-col border-r border-gray-200/90 bg-white transition-all duration-300 ease-in-out dark:border-gray-800/90 dark:bg-gray-900 ${
-        isOpen ? "w-72" : "w-20"
+      className={`flex h-full flex-col border-r border-gray-200/90 bg-white transition-[width] duration-300 ease-in-out dark:border-gray-800/90 dark:bg-gray-900 ${
+        isOpen ? "w-64" : "w-[72px]"
       }`}
     >
       <div
-        className={`flex h-16 flex-shrink-0 items-center border-b border-gray-200/90 px-4 dark:border-gray-800/90 ${
-          isIconOnly ? "justify-center" : "justify-between"
+        className={`flex h-16 flex-shrink-0 items-center border-b border-gray-200/90 dark:border-gray-800/90 ${
+          isIconOnly ? "justify-center px-2" : "justify-between px-4"
         }`}
       >
         {!isIconOnly ? (
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 shadow-sm">
               <TrendingUp className="h-5 w-5 text-white" aria-hidden="true" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-lg font-bold leading-tight tracking-tight text-gray-900 dark:text-white">
+              <p className="truncate text-base font-bold leading-tight tracking-tight text-gray-900 dark:text-white">
                 {t("app.name")}
               </p>
               <p className="truncate text-[11px] leading-tight text-gray-500 dark:text-gray-400">
@@ -191,7 +191,9 @@ const Sidebar = ({ isOpen, setIsOpen, isMobile }) => {
 
       <nav
         aria-label="Menu utama"
-        className="flex-1 space-y-1 overflow-y-auto px-3 py-3"
+        className={`flex-1 space-y-0.5 overflow-y-auto py-2 ${
+          isIconOnly ? "scrollbar-hide px-2" : "scrollbar-thin px-2.5"
+        }`}
       >
         {menuItems.map((item) => {
           const isActive = location.pathname === item.path;
@@ -203,19 +205,23 @@ const Sidebar = ({ isOpen, setIsOpen, isMobile }) => {
               aria-current={isActive ? "page" : undefined}
               aria-label={isIconOnly ? label : undefined}
               title={isIconOnly ? label : undefined}
-              className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${
+              className={`group relative flex items-center rounded-xl text-[13.5px] transition-all duration-200 ${
+                isIconOnly
+                  ? "mx-auto h-9 w-10 justify-center p-0"
+                  : "gap-3 px-3 py-2"
+              } ${
                 isActive
                   ? "bg-primary-50 font-semibold text-primary-700 dark:bg-primary-950 dark:text-primary-400"
                   : "font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-              } ${isIconOnly ? "justify-center" : ""}`}
+              }`}
             >
-              <item.icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+              <item.icon className="h-[18px] w-[18px] flex-shrink-0" aria-hidden="true" />
               {!isIconOnly && (
-                <span className="whitespace-nowrap truncate">{label}</span>
+                <span className="truncate whitespace-nowrap">{label}</span>
               )}
               {isActive && !isIconOnly && (
                 <div
-                  className="ml-auto h-6 w-1 flex-shrink-0 rounded-full bg-primary-600"
+                  className="ml-auto h-5 w-1 flex-shrink-0 rounded-full bg-primary-600"
                   aria-hidden="true"
                 />
               )}
@@ -224,17 +230,23 @@ const Sidebar = ({ isOpen, setIsOpen, isMobile }) => {
         })}
       </nav>
 
-      <div className="flex-shrink-0 border-t border-gray-200/90 p-3 dark:border-gray-800/90">
+      <div
+        className={`flex-shrink-0 border-t border-gray-200/90 dark:border-gray-800/90 ${
+          isIconOnly ? "p-2" : "p-2.5"
+        }`}
+      >
         <button
           type="button"
           onClick={handleLogout}
           aria-label={isIconOnly ? t("auth.logout") : undefined}
           title={isIconOnly ? t("auth.logout") : undefined}
-          className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 transition-all duration-200 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/50 ${
-            isIconOnly ? "justify-center" : ""
+          className={`group flex items-center rounded-xl text-[13.5px] font-medium text-red-600 transition-all duration-200 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/50 ${
+            isIconOnly
+              ? "mx-auto h-9 w-10 justify-center p-0"
+              : "w-full gap-3 px-3 py-2"
           }`}
         >
-          <LogOut className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+          <LogOut className="h-[18px] w-[18px] flex-shrink-0" aria-hidden="true" />
           {!isIconOnly && <span>{t("auth.logout")}</span>}
         </button>
       </div>

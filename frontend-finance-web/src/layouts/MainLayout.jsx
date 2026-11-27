@@ -76,8 +76,8 @@ const MainLayout = () => {
     );
   }
 
-  // Sinkron dengan Sidebar: w-72 (288px) saat terbuka, w-20 (80px) saat ringkas
-  const sidebarWidth = isSidebarOpen ? 288 : 80;
+  // Sinkron dengan Sidebar: w-64 (256px) saat terbuka, w-[72px] (72px) saat ringkas
+  const sidebarWidth = isSidebarOpen ? 256 : 72;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 overflow-x-hidden">
@@ -120,7 +120,7 @@ const MainLayout = () => {
         >
           <div
             ref={desktopContentRef}
-            className="page-content mx-auto w-full max-w-[1440px] p-5 md:p-6 lg:p-8"
+            className="page-content mx-auto w-full max-w-[1440px] p-4 md:p-5 lg:p-6"
           >
             <Outlet />
           </div>
