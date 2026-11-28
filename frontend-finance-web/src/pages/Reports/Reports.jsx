@@ -32,6 +32,7 @@ import Button from "../../components/ui/Button";
 import Table from "../../components/ui/Table";
 import EmptyState from "../../components/ui/EmptyState";
 import SkeletonLoader from "../../components/ui/SkeletonLoader";
+import { useAuth } from "../../context/AuthContext";
 import { useApp } from "../../context/AppContext";
 import { useTheme } from "../../context/ThemeContext";
 import {
@@ -40,10 +41,12 @@ import {
   useYearlyTrend,
 } from "../../hooks/queries";
 import { reportService } from "../../api/services/reports.js";
+import { transactionService } from "../../api/services/transactions.js";
 import { useTranslation } from "../../hooks/useTranslation";
 import { apiMessage } from "../../lib/apiMessage";
 import { formatApiDate } from "../../lib/format";
 import { formatCurrencyWithRate } from "../../utils/formatters";
+import { generateMonthlyReportPdf } from "../../utils/pdfReportGenerator";
 
 const CHART_FALLBACK_COLORS = [
   "#4f46e5",
@@ -102,6 +105,7 @@ const ChartTooltip = ({ active, payload, label, formatMoney }) => {
 };
 
 export default function Reports() {
+  const { user } = useAuth();
   const { t, language } = useTranslation();
   const isEn = language === "en";
   const locale = isEn ? "en-US" : "id-ID";
@@ -150,17 +154,61 @@ export default function Reports() {
     setExportError("");
     setExportingFormat(format);
     try {
+      const periodStamp = `${year}-${String(month).padStart(2, "0")}`;
+
+      if (format === "pdf") {
+        // Ambil ringkasan bulanan & seluruh halaman transaksi dari backend
+        const reportData =
+          monthly.data ?? (await reportService.monthly(month, year));
+
+        let allTx = transactions.data?.items ?? [];
+        const totalPages = transactions.data?.meta?.totalPages ?? 1;
+
+        if (!transactions.data) {
+          const firstPage = await transactionService.list(params);
+          allTx = firstPage.items ?? [];
+          const pages = firstPage.meta?.totalPages ?? 1;
+          for (let p = 2; p <= pages; p += 1) {
+            const nextPage = await transactionService.list({ ...params, page: p });
+            allTx = allTx.concat(nextPage.items ?? []);
+          }
+        } else if (totalPages > 1) {
+          allTx = [...allTx];
+          for (let p = 2; p <= totalPages; p += 1) {
+            const nextPage = await transactionService.list({ ...params, page: p });
+            allTx = allTx.concat(nextPage.items ?? []);
+          }
+        }
+
+        const pdfBlob = generateMonthlyReportPdf({
+          month,
+          year,
+          monthlyReport: reportData,
+          transactions: allTx,
+          userName: user?.name || "User",
+          language,
+        });
+        downloadBlob(pdfBlob, `FinManage_Laporan_${periodStamp}.pdf`);
+        toast.success(
+          isEn
+            ? "Report (PDF) downloaded."
+            : "Laporan (PDF) berhasil diunduh."
+        );
+        return;
+      }
+
       const res = await reportService.export({ month, year, format });
-      const ext = format === "xlsx" ? "xlsx" : "pdf";
-      const fallback = `FinManage_Laporan_${year}-${String(month).padStart(2, "0")}.${ext}`;
+      const fallback = `FinManage_Laporan_${periodStamp}.xlsx`;
       const disposition = res.headers?.["content-disposition"] || "";
       const matched = disposition.match(/filename\*?=(?:UTF-8''|")?([^";]+)/i)?.[1];
-      const filename = matched ? decodeURIComponent(matched.replace(/"/g, "")) : fallback;
+      const filename = matched
+        ? decodeURIComponent(matched.replace(/"/g, ""))
+        : fallback;
       downloadBlob(res.data, filename);
       toast.success(
         isEn
-          ? `Report (${ext.toUpperCase()}) downloaded.`
-          : `Laporan (${ext.toUpperCase()}) berhasil diunduh.`
+          ? "Report (XLSX) downloaded."
+          : "Laporan (XLSX) berhasil diunduh."
       );
     } catch (err) {
       const message =
