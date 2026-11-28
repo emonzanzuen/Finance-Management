@@ -574,8 +574,7 @@
 
 body,
 #root,
-.page-content,
-main {
+.page-content {
   background-color: var(--surface-canvas);
 }
 

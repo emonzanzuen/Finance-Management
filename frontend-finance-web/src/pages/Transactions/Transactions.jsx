@@ -10,7 +10,9 @@ import {
   AlertCircle,
   ArrowUpRight,
   ArrowDownRight,
-  SlidersHorizontal,
+  ArrowUpDown,
+  Calendar,
+  RotateCcw,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PageHeader from "../../components/common/PageHeader";
@@ -36,6 +38,7 @@ import {
 } from "../../hooks/queries";
 import { formatCurrencyWithRate } from "../../utils/formatters";
 import { formatApiDate } from "../../lib/format";
+import { todayWIB } from "../../lib/rules";
 import { apiMessage } from "../../lib/apiMessage";
 
 const LIMIT = 10;
@@ -70,10 +73,34 @@ const EMPTY_FILTERS = {
   sort: "date_desc",
 };
 
+function getDateRangePreset(preset) {
+  const today = todayWIB();
+  const [y, m, d] = today.split("-").map(Number);
+
+  if (preset === "today") {
+    return { dateFrom: today, dateTo: today };
+  }
+  if (preset === "7d") {
+    const start = new Date(Date.UTC(y, m - 1, d - 6));
+    const dateFrom = `${start.getUTCFullYear()}-${String(
+      start.getUTCMonth() + 1
+    ).padStart(2, "0")}-${String(start.getUTCDate()).padStart(2, "0")}`;
+    return { dateFrom, dateTo: today };
+  }
+  if (preset === "month") {
+    const dateFrom = `${y}-${String(m).padStart(2, "0")}-01`;
+    return { dateFrom, dateTo: today };
+  }
+  return { dateFrom: "", dateTo: "" };
+}
+
 const Transactions = () => {
   const { t, language } = useTranslation();
+  const isEn = language === "en";
   const { currency, exchangeRates } = useApp();
+
   const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [datePanelOpen, setDatePanelOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [form, setForm] = useState(null); // { transaction? }
   const [detail, setDetail] = useState(null);
@@ -144,14 +171,49 @@ const Transactions = () => {
       return next;
     });
 
-  const activeFilterCount = Object.entries(filters).filter(
-    ([k, v]) => k !== "sort" && v !== ""
-  ).length;
+  const applyDatePreset = (preset) => {
+    const { dateFrom, dateTo } = getDateRangePreset(preset);
+    setFilters((f) => ({ ...f, dateFrom, dateTo }));
+  };
+
+  const clearDates = () => {
+    setFilters((f) => ({ ...f, dateFrom: "", dateTo: "" }));
+  };
+
+  const hasDateFilter = Boolean(filters.dateFrom || filters.dateTo);
+  const activeFilterCount =
+    (filters.search.trim() ? 1 : 0) +
+    (filters.type ? 1 : 0) +
+    (filters.categoryId ? 1 : 0) +
+    (hasDateFilter ? 1 : 0);
   const hasFilters = activeFilterCount > 0;
 
   const items = data?.items ?? [];
   const meta = data?.meta;
   const money = (n) => formatCurrencyWithRate(n, currency, exchangeRates);
+  const selectedCategoryObj = categories.find((c) => c.id === filters.categoryId);
+
+  const dateButtonLabel = useMemo(() => {
+    if (filters.dateFrom && filters.dateTo) {
+      return `${formatApiDate(filters.dateFrom, language)} – ${formatApiDate(
+        filters.dateTo,
+        language
+      )}`;
+    }
+    if (filters.dateFrom) {
+      return `${isEn ? "From" : "Dari"} ${formatApiDate(
+        filters.dateFrom,
+        language
+      )}`;
+    }
+    if (filters.dateTo) {
+      return `${isEn ? "Until" : "Sampai"} ${formatApiDate(
+        filters.dateTo,
+        language
+      )}`;
+    }
+    return isEn ? "Date range" : "Periode";
+  }, [filters.dateFrom, filters.dateTo, language, isEn]);
 
   const confirmDelete = async () => {
     try {
@@ -178,7 +240,7 @@ const Transactions = () => {
     {
       key: "description",
       label: t("transactions.description"),
-      render: (v, row) => (
+      render: (v) => (
         <div className="min-w-0 max-w-xs">
           <p className="truncate font-medium text-gray-900 dark:text-gray-100">
             {v || <span className="font-normal text-gray-400">—</span>}
@@ -221,7 +283,10 @@ const Transactions = () => {
       label: "",
       align: "right",
       render: (_, row) => (
-        <span className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <span
+          className="inline-flex items-center gap-1"
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
             type="button"
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
@@ -265,18 +330,19 @@ const Transactions = () => {
         }
       />
 
-      {/* Filter & Pencarian Server-Side */}
-      <Card className="space-y-3.5 p-4 sm:p-5">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-12">
-          {/* Pencarian */}
-          <div className="relative sm:col-span-2 lg:col-span-5">
+      {/* ===== FILTER COMMAND DOCK (Server-Side) ===== */}
+      <Card padding={false} className="overflow-hidden">
+        {/* Baris 1: Pencarian Terintegrasi + Segmented Type + Periode + Urutkan */}
+        <div className="flex flex-col gap-3 p-3.5 sm:p-4 lg:flex-row lg:items-center">
+          {/* Search Input */}
+          <div className="relative flex-1 min-w-[200px]">
             <Search
               className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
               aria-hidden="true"
             />
             <input
               type="text"
-              className="input-field pl-10 pr-9"
+              className="w-full min-h-[40px] rounded-xl border border-gray-200/90 bg-gray-50/80 pl-10 pr-9 text-sm text-gray-900 placeholder:text-gray-400 transition-colors hover:border-gray-300 focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-gray-800 dark:bg-gray-950/60 dark:text-gray-100 dark:placeholder:text-gray-500 dark:hover:border-gray-700 dark:focus:border-primary-400 dark:focus:bg-gray-900"
               placeholder={t("transactions.search_placeholder")}
               maxLength={50}
               value={filters.search}
@@ -288,142 +354,311 @@ const Transactions = () => {
                 type="button"
                 onClick={() => setFilter("search", "")}
                 aria-label={t("transactions.clear_filters")}
-                className="absolute right-2.5 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-200/70 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
               >
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             )}
           </div>
 
-          {/* Filter Tipe */}
-          <div className="lg:col-span-3">
-            <select
-              className="input-field"
-              value={filters.type}
-              onChange={(e) => setFilter("type", e.target.value)}
-              aria-label={t("transactions.filter_type")}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Segmented Type Switcher */}
+            <div
+              role="group"
+              aria-label={t("transactions.type")}
+              className="inline-flex rounded-xl border border-gray-200/90 bg-gray-100/80 p-1 dark:border-gray-800 dark:bg-gray-950/70"
             >
-              <option value="">
-                {t("transactions.filter_type")}: {t("common.all")}
-              </option>
-              <option value="income">{t("transactions.income")}</option>
-              <option value="expense">{t("transactions.expense")}</option>
-            </select>
-          </div>
+              {[
+                { value: "", label: t("common.all"), icon: null, tone: "all" },
+                {
+                  value: "income",
+                  label: t("transactions.income"),
+                  icon: ArrowUpRight,
+                  tone: "income",
+                },
+                {
+                  value: "expense",
+                  label: t("transactions.expense"),
+                  icon: ArrowDownRight,
+                  tone: "expense",
+                },
+              ].map((opt) => {
+                const active = filters.type === opt.value;
+                const Icon = opt.icon;
+                const activeCls =
+                  opt.tone === "income"
+                    ? "bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/30 dark:bg-emerald-500/20 dark:text-emerald-300"
+                    : opt.tone === "expense"
+                    ? "bg-rose-500/15 text-rose-700 ring-1 ring-rose-500/30 dark:bg-rose-500/20 dark:text-rose-300"
+                    : "bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-white";
 
-          {/* Filter Kategori */}
-          <div className="lg:col-span-4">
-            <select
-              className="input-field"
-              value={filters.categoryId}
-              onChange={(e) => setFilter("categoryId", e.target.value)}
-              aria-label={t("transactions.filter_category")}
+                return (
+                  <button
+                    key={opt.value || "all"}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setFilter("type", opt.value)}
+                    className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all ${
+                      active
+                        ? activeCls
+                        : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+                    }`}
+                  >
+                    {Icon && <Icon className="h-3.5 w-3.5" aria-hidden="true" />}
+                    <span>{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Tombol Toggle Rentang Tanggal */}
+            <button
+              type="button"
+              aria-expanded={datePanelOpen}
+              aria-controls="tx-date-panel"
+              onClick={() => setDatePanelOpen((o) => !o)}
+              className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-xl border px-3 text-xs font-medium transition-colors ${
+                hasDateFilter || datePanelOpen
+                  ? "border-primary-500/50 bg-primary-50/80 text-primary-700 dark:border-primary-500/40 dark:bg-primary-950/60 dark:text-primary-300"
+                  : "border-gray-200/90 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+              }`}
             >
-              <option value="">
-                {t("transactions.filter_category")}: {t("common.all")}
-              </option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              <Calendar className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+              <span className="tabular-nums-finance max-w-[170px] truncate">
+                {dateButtonLabel}
+              </span>
+            </button>
+
+            {/* Sort Compact Pill */}
+            <div className="relative inline-flex items-center">
+              <ArrowUpDown
+                className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-gray-400"
+                aria-hidden="true"
+              />
+              <select
+                id="tx-sort"
+                aria-label={t("transactions.sort_by")}
+                className="min-h-[38px] cursor-pointer rounded-xl border border-gray-200/90 bg-white pl-8 pr-7 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+                value={filters.sort}
+                onChange={(e) => setFilter("sort", e.target.value)}
+              >
+                {Object.entries(SORTS).map(([k, s]) => (
+                  <option key={k} value={k}>
+                    {t(s.key)}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
-        {/* Baris Rentang Tanggal & Urutan */}
-        <div className="grid gap-3 border-t border-gray-100 pt-3.5 dark:border-gray-800/80 sm:grid-cols-2 lg:grid-cols-12 lg:items-end">
-          <div className="lg:col-span-3">
-            <label
-              htmlFor="tx-date-from"
-              className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400"
-            >
-              {t("transactions.date_from")}
-            </label>
-            <input
-              id="tx-date-from"
-              type="date"
-              className={`input-field input-field-sm tabular-nums-finance ${
-                rangeInvalid ? "input-field-error" : ""
-              }`}
-              value={filters.dateFrom}
-              onChange={(e) => setFilter("dateFrom", e.target.value)}
-            />
-          </div>
+        {/* Panel Rentang Tanggal (Expandable + Quick Presets) */}
+        {(datePanelOpen || rangeInvalid) && (
+          <div
+            id="tx-date-panel"
+            className="border-t border-gray-100 bg-gray-50/70 px-3.5 py-3 dark:border-gray-800/80 dark:bg-gray-950/40 sm:px-4"
+          >
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="tx-date-from"
+                    className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                  >
+                    {t("transactions.date_from")}
+                  </label>
+                  <input
+                    id="tx-date-from"
+                    type="date"
+                    className={`input-field input-field-sm tabular-nums-finance ${
+                      rangeInvalid ? "input-field-error" : ""
+                    }`}
+                    value={filters.dateFrom}
+                    onChange={(e) => setFilter("dateFrom", e.target.value)}
+                  />
+                </div>
 
-          <div className="lg:col-span-3">
-            <label
-              htmlFor="tx-date-to"
-              className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400"
-            >
-              {t("transactions.date_to")}
-            </label>
-            <input
-              id="tx-date-to"
-              type="date"
-              className={`input-field input-field-sm tabular-nums-finance ${
-                rangeInvalid ? "input-field-error" : ""
-              }`}
-              value={filters.dateTo}
-              onChange={(e) => setFilter("dateTo", e.target.value)}
-            />
-          </div>
+                <div>
+                  <label
+                    htmlFor="tx-date-to"
+                    className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                  >
+                    {t("transactions.date_to")}
+                  </label>
+                  <input
+                    id="tx-date-to"
+                    type="date"
+                    className={`input-field input-field-sm tabular-nums-finance ${
+                      rangeInvalid ? "input-field-error" : ""
+                    }`}
+                    value={filters.dateTo}
+                    onChange={(e) => setFilter("dateTo", e.target.value)}
+                  />
+                </div>
+              </div>
 
-          <div className="lg:col-span-3">
-            <label
-              htmlFor="tx-sort"
-              className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400"
-            >
-              {t("transactions.sort_by")}
-            </label>
-            <select
-              id="tx-sort"
-              className="input-field input-field-sm"
-              value={filters.sort}
-              onChange={(e) => setFilter("sort", e.target.value)}
-            >
-              {Object.entries(SORTS).map(([k, s]) => (
-                <option key={k} value={k}>
-                  {t(s.key)}
-                </option>
-              ))}
-            </select>
-          </div>
+              {/* Preset Cepat (mengisi dateFrom/dateTo ke server) */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[
+                  { id: "today", label: isEn ? "Today" : "Hari ini" },
+                  { id: "7d", label: isEn ? "Last 7 days" : "7 hari" },
+                  { id: "month", label: isEn ? "This month" : "Bulan ini" },
+                ].map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => applyDatePreset(preset.id)}
+                    className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-primary-300 hover:text-primary-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-primary-700 dark:hover:text-primary-400"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+                {hasDateFilter && (
+                  <button
+                    type="button"
+                    onClick={clearDates}
+                    className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                  >
+                    {isEn ? "Clear" : "Hapus"}
+                  </button>
+                )}
+              </div>
+            </div>
 
-          <div className="flex items-center justify-between gap-2 lg:col-span-3 lg:justify-end">
-            {hasFilters ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                icon={X}
-                onClick={() => setFilters(EMPTY_FILTERS)}
-                className="text-gray-600 dark:text-gray-300"
+            {rangeInvalid && (
+              <div
+                role="alert"
+                className="mt-2.5 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 dark:border-red-900/70 dark:bg-red-950/40 dark:text-red-300"
               >
-                {t("transactions.clear_filters")} ({activeFilterCount})
-              </Button>
+                <AlertCircle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                <span>{t("transactions.range_invalid")}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Baris 2: Interactive Category Chips Strip */}
+        <div className="border-t border-gray-100 px-3.5 py-2.5 dark:border-gray-800/80 sm:px-4">
+          <div className="flex items-center justify-between gap-3">
+            <div
+              role="group"
+              aria-label={t("transactions.category")}
+              className="scrollbar-hide flex flex-1 items-center gap-1.5 overflow-x-auto py-0.5 sm:flex-wrap"
+            >
+              <button
+                type="button"
+                aria-pressed={!filters.categoryId}
+                onClick={() => setFilter("categoryId", "")}
+                className={`inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                  !filters.categoryId
+                    ? "border-primary-500 bg-primary-600 text-white shadow-sm dark:border-primary-400 dark:bg-primary-500"
+                    : "border-gray-200/90 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-700"
+                }`}
+              >
+                {t("transactions.filter_category")}
+              </button>
+
+              {categories.map((c) => {
+                const active = filters.categoryId === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() =>
+                      setFilter("categoryId", active ? "" : c.id)
+                    }
+                    className={`inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                      active
+                        ? "border-primary-500 bg-primary-50 text-primary-700 ring-1 ring-primary-500/30 dark:border-primary-400 dark:bg-primary-950/70 dark:text-primary-200"
+                        : "border-gray-200/90 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:bg-gray-800"
+                    }`}
+                  >
+                    <span
+                      className="h-2 w-2 flex-shrink-0 rounded-full"
+                      style={{ backgroundColor: c.color || "#6366f1" }}
+                      aria-hidden="true"
+                    />
+                    <span className="max-w-[140px] truncate">{c.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {hasFilters ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilters(EMPTY_FILTERS);
+                  setDatePanelOpen(false);
+                }}
+                className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+              >
+                <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>
+                  {isEn ? "Reset" : "Reset"} ({activeFilterCount})
+                </span>
+              </button>
             ) : (
               meta?.total !== undefined && (
-                <span className="tabular-nums-finance inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>
-                    {meta.total} {t("nav.transactions").toLowerCase()}
-                  </span>
+                <span className="tabular-nums-finance hidden flex-shrink-0 text-xs font-medium text-gray-400 sm:inline">
+                  {meta.total} {t("nav.transactions").toLowerCase()}
                 </span>
               )
             )}
           </div>
-        </div>
 
-        {rangeInvalid && (
-          <div
-            role="alert"
-            className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 dark:border-red-900/70 dark:bg-red-950/40 dark:text-red-300"
-          >
-            <AlertCircle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
-            <span>{t("transactions.range_invalid")}</span>
-          </div>
-        )}
+          {/* Active Filter Pills (hanya muncul bila ada filter teks/kategori/tanggal) */}
+          {(filters.search.trim() || selectedCategoryObj || hasDateFilter) && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-gray-100 pt-2.5 dark:border-gray-800/80">
+              {filters.search.trim() && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-2.5 py-1 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+                  <span>“{filters.search.trim()}”</span>
+                  <button
+                    type="button"
+                    onClick={() => setFilter("search", "")}
+                    aria-label={isEn ? "Remove search filter" : "Hapus filter pencarian"}
+                    className="rounded hover:text-gray-950 dark:hover:text-white"
+                  >
+                    <X className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                </span>
+              )}
+              {selectedCategoryObj && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-2.5 py-1 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: selectedCategoryObj.color }}
+                    aria-hidden="true"
+                  />
+                  <span>{selectedCategoryObj.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setFilter("categoryId", "")}
+                    aria-label={isEn ? "Remove category filter" : "Hapus filter kategori"}
+                    className="rounded hover:text-gray-950 dark:hover:text-white"
+                  >
+                    <X className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                </span>
+              )}
+              {hasDateFilter && (
+                <span className="tabular-nums-finance inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-2.5 py-1 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+                  <Calendar className="h-3 w-3 text-gray-400" aria-hidden="true" />
+                  <span>{dateButtonLabel}</span>
+                  <button
+                    type="button"
+                    onClick={clearDates}
+                    aria-label={isEn ? "Remove date filter" : "Hapus filter tanggal"}
+                    className="rounded hover:text-gray-950 dark:hover:text-white"
+                  >
+                    <X className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </Card>
 
       {/* Daftar Transaksi */}
@@ -444,7 +679,10 @@ const Transactions = () => {
               title={t("transactions.no_results")}
               description=""
               actionText={t("transactions.clear_filters")}
-              onAction={() => setFilters(EMPTY_FILTERS)}
+              onAction={() => {
+                setFilters(EMPTY_FILTERS);
+                setDatePanelOpen(false);
+              }}
             />
           ) : (
             <EmptyState
@@ -485,7 +723,10 @@ const Transactions = () => {
                       tabIndex={0}
                       onClick={() => setDetail(row)}
                       onKeyDown={(e) => {
-                        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                        if (
+                          e.target === e.currentTarget &&
+                          (e.key === "Enter" || e.key === " ")
+                        ) {
                           e.preventDefault();
                           setDetail(row);
                         }
@@ -516,7 +757,9 @@ const Transactions = () => {
                               <span className="inline-flex items-center gap-1.5">
                                 <span
                                   className="h-2 w-2 rounded-full"
-                                  style={{ backgroundColor: row.category.color || "#9ca3af" }}
+                                  style={{
+                                    backgroundColor: row.category.color || "#9ca3af",
+                                  }}
                                   aria-hidden="true"
                                 />
                                 <span>{row.category.name}</span>
@@ -530,7 +773,7 @@ const Transactions = () => {
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                      <div className="flex flex-shrink-0 flex-col items-end gap-2">
                         <p
                           className={`tabular-nums-finance whitespace-nowrap text-sm font-bold ${
                             isIncome

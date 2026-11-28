@@ -14,7 +14,7 @@ const AuthShell = ({ title, subtitle, children, footer }) => {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/80 p-4 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 md:p-6">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/80 px-4 py-6 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 md:p-6">
       {/* Latar dekoratif lembut */}
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
         <div className="absolute right-[-10%] top-[-20%] h-[460px] w-[460px] rounded-full bg-primary-500/5 blur-3xl dark:bg-primary-500/10" />
@@ -47,25 +47,25 @@ const AuthShell = ({ title, subtitle, children, footer }) => {
         </button>
       </div>
 
-      <main className="relative z-10 w-full max-w-md">
+      <main className="relative z-10 w-full max-w-md bg-transparent">
         {/* Identitas Aplikasi */}
-        <div className="mb-6 text-center">
+        <div className="mb-5 text-center">
           <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 shadow-lg shadow-primary-500/20">
             <TrendingUp className="h-7 w-7 text-white" aria-hidden="true" />
           </div>
-          <h1 className="mt-4 text-2xl font-bold tracking-tight text-gray-900 dark:text-white md:text-3xl">
+          <h1 className="mt-3.5 text-2xl font-bold tracking-tight text-gray-900 dark:text-white md:text-3xl">
             {t("app.name")}
           </h1>
           {subtitle && (
-            <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               {subtitle}
             </p>
           )}
         </div>
 
         {/* Kartu Form */}
-        <section className="rounded-2xl border border-gray-200/90 bg-white/95 p-6 shadow-xl shadow-gray-200/40 backdrop-blur-sm dark:border-gray-800/90 dark:bg-gray-900/95 dark:shadow-black/30 md:p-8">
-          <h2 className="mb-6 text-center text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl">
+        <section className="rounded-2xl border border-gray-200/90 bg-white/95 p-6 shadow-xl shadow-gray-200/40 backdrop-blur-sm dark:border-gray-800/90 dark:bg-gray-900/95 dark:shadow-black/30 md:p-7">
+          <h2 className="mb-5 text-center text-lg font-semibold tracking-tight text-gray-900 dark:text-white sm:text-xl">
             {title}
           </h2>
           {children}
@@ -73,7 +73,7 @@ const AuthShell = ({ title, subtitle, children, footer }) => {
 
         {footer}
 
-        <p className="mt-6 text-center text-xs text-gray-400 dark:text-gray-500">
+        <p className="mt-5 text-center text-xs text-gray-400 dark:text-gray-500">
           &copy; {new Date().getFullYear()} {t("app.name")}
         </p>
       </main>
